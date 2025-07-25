@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+.!rounded-button {
+  border-radius: 8px !important;
+}
+
+/* Element Plus 组件样式覆盖 */
+.el-dialog {
+  border-radius: 8px;
+}
+
+.el-button {
+  font-size: 16px;
+  padding: 12px 24px;
+}
+
+.el-input-number {
+  width: 120px;
+  background: white;
+  border-radius: 4px;
+}
+
+.el-input-number__decrease,
+.el-input-number__increase {
+  border-radius: 4px !important;
+}
+
+.el-table {
+  --el-table-header-bg-color: #f5f7fa;
+  --el-table-row-hover-bg-color: #f5f7fa;
+}
