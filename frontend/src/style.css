@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* 自定义样式 */
-.!rounded-button {
+.rounded-button {
   border-radius: 8px !important;
 }
 

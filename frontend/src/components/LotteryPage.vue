@@ -26,15 +26,25 @@
             </div>
 
             <!-- items-center: 默认显示的奖品信息 -->
-            <div class="items-center transition-all duration-500">
+            <div class="items-center transition-all duration-500" :class="{ 'opacity-0': showWinnerNames }">
               <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center">{{ currentPrize.level }}</h2>
               <p class="text-white text-base mb-4 text-center">{{ currentPrize.name }}</p>
             </div>
 
-            <!-- items-name: 抽奖时显示的中奖者姓名 -->
-            <div class="items-name"></div>
-          </div>
+            <!-- items-name: 抽奖时显示的参与者姓名 -->
+            <div class="items-name absolute top-0 left-0 w-full h-[392px] flex items-center justify-center transition-all duration-500 bg-white" 
+                 :class="{ 'opacity-100 visible': showWinnerNames, 'opacity-0 invisible': !showWinnerNames }">
+              <div class="text-center">
+                <div v-for="(winner, index) in currentWinners" :key="index" class="text-red-600 text-4xl font-bold mb-4 animate-bounce">
+                  {{ winner.name }}
+                </div>
+                <div v-if="currentWinners.length === 0 && isDrawing" class="text-red-600 text-4xl font-bold animate-pulse">
+                  抽奖中...
+                </div>
+              </div>
+            </div>
 
+          </div>
           <!-- 控制面板 -->
           <div
             class="mt-4 flex items-center justify-center gap-4 bg-gradient-to-r from-red-700/20 to-yellow-600/20 border border-yellow-400/30 p-4 rounded-lg max-w-4xl mx-auto backdrop-blur-sm">
