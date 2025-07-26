@@ -21,14 +21,15 @@
           <!-- 奖品信息容器 -->
           <div class="flex flex-col items-center rounded-xl w-full relative">
             <div
-              class="w-[300px] h-[300px] bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-2 border-yellow-400 shadow-xl rounded-lg p-4 mb-4 backdrop-blur-sm">
-              <img :src="currentPrize.image" :alt="currentPrize.name" class="w-full h-full object-contain">
+              class="w-[300px] h-[300px] bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-2 border-yellow-400 shadow-xl rounded-lg p-4 mb-4 backdrop-blur-sm transition-all duration-1000 transform-gpu"
+              :class="{ 'scale-0 opacity-0': showWinnerNames }">
+              <img :src="currentPrize.image" :alt="currentPrize.name" class="w-full h-full object-contain transition-all duration-1000 transform-gpu" :class="{ 'scale-0 opacity-0': showWinnerNames }">
             </div>
 
             <!-- items-center: 默认显示的奖品信息 -->
-            <div class="items-center transition-all duration-500" :class="{ 'opacity-0': showWinnerNames }">
-              <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center">{{ currentPrize.level }}</h2>
-              <p class="text-white text-base mb-4 text-center">{{ currentPrize.name }}</p>
+            <div class="items-center transition-all duration-1000 transform-gpu" :class="{ 'scale-0 opacity-0': showWinnerNames }">
+              <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center transition-all duration-1000 transform-gpu" :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentPrize.level }}</h2>
+              <p class="text-white text-base mb-4 text-center transition-all duration-1000 transform-gpu" :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentPrize.name }}</p>
             </div>
 
             <!-- items-name: 抽奖时显示的参与者姓名 -->
