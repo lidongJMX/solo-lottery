@@ -62,15 +62,26 @@
                 </div>
                 <!-- 抽奖结束显示中奖者 -->
                 <div v-else-if="currentWinners.length > 0" 
-                  class="grid gap-6 w-full h-full place-items-center"
+                  class="grid gap-6 w-full h-full place-items-center relative"
                   :class="{
                     'grid-cols-1': currentWinners.length <= 1,
                     'grid-cols-2': currentWinners.length === 2,
                     'grid-cols-3': currentWinners.length >= 3 && currentWinners.length <= 6,
                     'grid-cols-4': currentWinners.length > 6
                   }">
+                  <!-- 背景装饰效果 -->
+                  <div class="absolute inset-0 bg-gradient-to-br from-red-500/20 via-red-600/30 to-red-700/20 rounded-lg border-2 border-yellow-400/50 backdrop-blur-sm">
+                    <!-- 装饰性光效 -->
+                    <div class="absolute top-4 left-4 w-8 h-8 bg-yellow-400/30 rounded-full"></div>
+                    <div class="absolute top-4 right-4 w-6 h-6 bg-yellow-300/40 rounded-full"></div>
+                    <div class="absolute bottom-4 left-4 w-6 h-6 bg-yellow-500/35 rounded-full"></div>
+                    <div class="absolute bottom-4 right-4 w-8 h-8 bg-yellow-400/25 rounded-full"></div>
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-yellow-400/20 rounded-full"></div>
+                  </div>
+                  
+                  <!-- 中奖者姓名 -->
                   <div v-for="(winner, index) in currentWinners" :key="index"
-                    class="text-red-600 text-4xl font-bold animate-bounce">
+                    class="relative z-10 bg-gradient-to-br from-yellow-400 to-yellow-500 text-red-800 px-6 py-3 rounded-xl text-4xl font-bold shadow-lg border-2 border-yellow-300">
                     {{ winner.name }}
                   </div>
                 </div>
