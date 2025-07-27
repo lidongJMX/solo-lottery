@@ -2,20 +2,19 @@
 <template>
   <div class="min-h-screen bg-red-600 flex items-center justify-center py-6"
     :style="{ backgroundImage: `url(${backgroundImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }">
-    <div class="w-[1440px] max-w-full relative">
-      <!-- 可编辑标题 -->
-      <div class="absolute top-1 left-4 z-10">
-        <div v-if="!isEditing" @dblclick="startEdit"
-          class="text-white font-bold cursor-pointer hover:text-yellow-400 transition-colors duration-200 bg-transparent px-3 py-2 rounded"
-          style="font-size: 25px;">
-          {{ organizationName }}
-        </div>
-        <input v-else ref="editInput" v-model="organizationName" @blur="stopEdit" @keyup.enter="stopEdit"
-          class="text-white font-bold  outline-none" style="font-size: 25px;" type="text">
+    <!-- 可编辑标题 -->
+    <div class="fixed top-2 left-4 z-10">
+      <div v-if="!isEditing" @dblclick="startEdit"
+        class="text-white font-bold cursor-pointer hover:text-yellow-400 transition-colors duration-200 bg-transparent px-3 py-2 rounded"
+        style="font-size: 25px;">
+        {{ organizationName }}
       </div>
-
+      <input v-else ref="editInput" v-model="organizationName" @blur="stopEdit" @keyup.enter="stopEdit"
+        class="text-white font-bold  outline-none" style="font-size: 25px;" type="text">
+    </div>
+    <div class="w-[1440px] max-w-full relative">
       <!-- 主要内容 -->
-      <div class="max-w-[1200px] mx-auto mt-20 rounded-lg p-8">
+      <div class="max-w-[1200px] mx-auto mt-0 rounded-lg p-8">
         <!-- 奖品展示 -->
         <div class="flex flex-col items-center">
           <!-- 奖品信息容器 -->
@@ -39,51 +38,32 @@
 
             <!-- items-name: 抽奖时显示的参与者姓名 -->
             <div
-              class="items-name absolute top-0 left-0 w-full h-[392px] flex items-center justify-center transition-all duration-1000 bg-white transform-gpu"
-              :class="{ 'opacity-100 visible scale-100': showWinnerNames, 'opacity-0 invisible scale-0': !showWinnerNames }"
+              class="items-name absolute inset-0 w-full h-full flex items-center justify-center transition-all duration-700 ease-in-out bg-gradient-to-br from-red-600/90 via-red-700/95 to-red-800/90 backdrop-blur-sm transform-gpu will-change-transform shadow-inner border-4 border-yellow-400/60"
+              :class="{ 'opacity-100 visible scale-100 translate-y-0': showWinnerNames, 'opacity-0 invisible scale-95 translate-y-2': !showWinnerNames }"
               :style="{ borderImageSource: `url(${cjbgImage})` }">
-              <div class="w-full h-full flex items-center justify-center p-8">
-                <!-- 抽奖中显示滚动的人名 -->
-                <div v-if="isDrawing" 
-                  class="grid gap-6 w-full h-full place-items-center"
-                  :class="{
-                    'grid-cols-1': drawCount <= 1,
-                    'grid-cols-2': drawCount === 2,
-                    'grid-cols-3': drawCount >= 3 && drawCount <= 6,
-                    'grid-cols-4': drawCount > 6
-                  }">
-                  <div v-for="index in drawCount" :key="index"
-                    class="text-red-600 text-4xl font-bold animate-pulse transition-all duration-300">
-                    {{ rollingNames[index - 1] || '参与者' }}
-                  </div>
-                  <div class="col-span-full text-yellow-600 text-lg font-medium animate-bounce mt-4">
-                    按空格键停止抽奖
-                  </div>
-                </div>
-                <!-- 抽奖结束显示中奖者 -->
-                <div v-else-if="currentWinners.length > 0" 
-                  class="grid gap-6 w-full h-full place-items-center relative"
-                  :class="{
-                    'grid-cols-1': currentWinners.length <= 1,
-                    'grid-cols-2': currentWinners.length === 2,
-                    'grid-cols-3': currentWinners.length >= 3 && currentWinners.length <= 6,
-                    'grid-cols-4': currentWinners.length > 6
-                  }">
-                  <!-- 背景装饰效果 -->
-                  <div class="absolute inset-0 bg-gradient-to-br from-red-500/20 via-red-600/30 to-red-700/20 rounded-lg border-2 border-yellow-400/50 backdrop-blur-sm">
-                    <!-- 装饰性光效 -->
-                    <div class="absolute top-4 left-4 w-8 h-8 bg-yellow-400/30 rounded-full"></div>
-                    <div class="absolute top-4 right-4 w-6 h-6 bg-yellow-300/40 rounded-full"></div>
-                    <div class="absolute bottom-4 left-4 w-6 h-6 bg-yellow-500/35 rounded-full"></div>
-                    <div class="absolute bottom-4 right-4 w-8 h-8 bg-yellow-400/25 rounded-full"></div>
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-yellow-400/20 rounded-full"></div>
-                  </div>
-                  
-                  <!-- 中奖者姓名 -->
-                  <div v-for="(winner, index) in currentWinners" :key="index"
-                    class="relative z-10 bg-gradient-to-br from-yellow-400 to-yellow-500 text-red-800 px-6 py-3 rounded-xl text-4xl font-bold shadow-lg border-2 border-yellow-300">
-                    {{ winner.name }}
-                  </div>
+              <div class="w-full h-full flex items-center justify-center p-0">
+                <!-- 抽奖中显示滚动的人名，抽奖结束显示中奖者 -->
+                <div class="grid gap-6 w-full h-full place-items-center place-content-center" :class="{
+                  'grid-cols-1': (isDrawing ? drawCount : currentWinners.length) <= 1,
+                  'grid-cols-2': (isDrawing ? drawCount : currentWinners.length) === 2,
+                  'grid-cols-3': (isDrawing ? drawCount : currentWinners.length) >= 3 && (isDrawing ? drawCount : currentWinners.length) <= 6,
+                  'grid-cols-4': (isDrawing ? drawCount : currentWinners.length) > 6
+                }">
+                  <!-- 抽奖中显示滚动人名 -->
+                  <template v-if="isDrawing">
+                    <div v-for="index in drawCount" :key="index"
+                      class="text-yellow-300 text-4xl font-bold transition-all duration-300 drop-shadow-lg">
+                      {{ rollingNames[index - 1] || '参与者' }}
+                    </div>
+
+                  </template>
+                  <!-- 抽奖结束显示中奖者 -->
+                  <template v-else-if="currentWinners.length > 0">
+                    <div v-for="(winner, index) in currentWinners" :key="index"
+                      class="text-yellow-400 text-4xl font-bold">
+                      {{ winner.name }}
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -148,21 +128,22 @@
     </el-dialog>
 
     <!-- 醒目的中奖弹窗 -->
-    <div v-if="winnerDialogVisible" 
+    <div v-if="winnerDialogVisible"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       @click="closeWinnerDialog">
-      <div class="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-3xl p-8 mx-4 max-w-4xl w-full shadow-2xl"
+      <div
+        class="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-3xl p-8 mx-4 max-w-4xl w-full shadow-2xl"
         @click.stop>
         <!-- 装饰性边框 -->
         <div class="absolute inset-0 rounded-3xl border-4 border-yellow-400 opacity-75"></div>
         <div class="absolute inset-2 rounded-2xl border-2 border-yellow-300"></div>
-        
+
         <!-- 关闭按钮 -->
-        <button @click="closeWinnerDialog" 
+        <button @click="closeWinnerDialog"
           class="absolute top-4 right-4 text-yellow-300 hover:text-yellow-100 text-2xl font-bold z-10">
           ×
         </button>
-        
+
         <!-- 标题 -->
         <div class="text-center mb-8 relative z-10">
           <h1 class="text-6xl font-bold text-yellow-300 mb-4">
@@ -172,31 +153,21 @@
             {{ currentPrize.level }} - {{ currentPrize.name }}
           </div>
         </div>
-        
+
         <!-- 中奖者列表 -->
         <div class="relative z-10">
-          <div class="grid gap-6 place-items-center"
-            :class="{
-              'grid-cols-1': currentWinners.length <= 1,
-              'grid-cols-2': currentWinners.length === 2,
-              'grid-cols-3': currentWinners.length >= 3 && currentWinners.length <= 6,
-              'grid-cols-4': currentWinners.length > 6
-            }">
+          <div class="grid gap-6 place-items-center" :class="{
+            'grid-cols-1': currentWinners.length <= 1,
+            'grid-cols-2': currentWinners.length === 2,
+            'grid-cols-3': currentWinners.length >= 3 && currentWinners.length <= 6,
+            'grid-cols-4': currentWinners.length > 6
+          }">
             <div v-for="(winner, index) in currentWinners" :key="index"
               class="bg-yellow-400 text-red-800 px-8 py-4 rounded-2xl text-3xl font-bold shadow-lg">
               {{ winner.name }}
             </div>
           </div>
         </div>
-        
-        <!-- 底部按钮 -->
-        <div class="text-center mt-8 relative z-10">
-          <button @click="closeWinnerDialog"
-            class="bg-yellow-400 hover:bg-yellow-300 text-red-800 px-8 py-3 rounded-xl text-xl font-bold shadow-lg">
-            确认
-          </button>
-        </div>
-        
         <!-- 背景装饰 -->
         <div class="absolute inset-0 overflow-hidden rounded-3xl">
           <div class="absolute -top-10 -left-10 w-20 h-20 bg-yellow-400 rounded-full opacity-20"></div>
@@ -309,13 +280,13 @@ const startDraw = () => {
   isDrawing.value = true;
   showWinnerNames.value = true;
   currentWinners.value = [];
-  
+
   // 初始化滚动人名数组
   rollingNames.value = new Array(drawCount.value).fill('');
-  
+
   // 开始人名滚动
   startRolling();
-  
+
   // 添加键盘监听
   document.addEventListener('keydown', handleKeyPress);
 };
@@ -326,7 +297,7 @@ const startRolling = () => {
     const availableParticipants = participants.value.filter(
       p => !winners.value.some(w => w.name === p)
     );
-    
+
     for (let i = 0; i < drawCount.value; i++) {
       const randomIndex = Math.floor(Math.random() * availableParticipants.length);
       rollingNames.value[i] = availableParticipants[randomIndex] || '参与者';
@@ -337,25 +308,25 @@ const startRolling = () => {
 // 停止抽奖
 const stopDraw = () => {
   if (!isDrawing.value) return;
-  
+
   // 清除定时器
   if (rollingTimer.value) {
     clearInterval(rollingTimer.value);
     rollingTimer.value = null;
   }
-  
+
   // 移除键盘监听
   document.removeEventListener('keydown', handleKeyPress);
-  
+
   // 确定最终中奖者
   drawWinners();
-  
+
   // 更新当前中奖者列表
   const latestWinners = winners.value.slice(-drawCount.value);
   currentWinners.value = latestWinners;
-  
+
   isDrawing.value = false;
-  
+
   // 显示中奖弹窗
   setTimeout(() => {
     winnerDialogVisible.value = true;
@@ -390,7 +361,10 @@ onUnmounted(() => {
 });
 
 const showWinners = () => {
-  dialogVisible.value = true;
+  // 设置当前中奖者为所有中奖者
+  currentWinners.value = winners.value;
+  // 显示醒目的中奖弹窗
+  winnerDialogVisible.value = true;
 };
 
 // 下一轮抽奖
