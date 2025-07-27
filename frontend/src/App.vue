@@ -1,11 +1,11 @@
 <template>
   <div id="app">
-    <LotteryPage />
+    <router-view />
   </div>
 </template>
 
 <script lang="ts" setup>
-import LotteryPage from './components/LotteryPage.vue'
+// 路由组件将自动加载，无需手动导入
 </script>
 
 <style>
