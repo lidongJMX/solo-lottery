@@ -236,36 +236,34 @@
               v-loading="awardsLoading"
               element-loading-text="加载奖项数据中..."
             >
-              <el-table-column prop="id" label="序号" width="80" align="center" />
-              <el-table-column prop="level" label="奖项名称" width="120" align="center">
+              <el-table-column prop="id" label="ID" width="80" align="center" />
+              <el-table-column prop="name" label="奖项名称" min-width="200" show-overflow-tooltip />
+              <el-table-column prop="description" label="奖项描述" min-width="150" show-overflow-tooltip>
+                <template #default="scope">
+                  {{ scope.row.description || '未设置' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="count" label="总数量" width="100" align="center" />
+              <el-table-column prop="remaining_count" label="剩余数量" width="100" align="center" />
+              <el-table-column prop="level" label="奖项等级" width="120" align="center">
                 <template #default="scope">
                   <el-tag :type="getAwardTagType(scope.row.level)" size="large">
                     {{ scope.row.level }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="name" label="奖项描述" min-width="200" />
-              <el-table-column prop="description" label="详细描述" min-width="150">
+              <el-table-column prop="draw_count" label="单次抽取" width="100" align="center" />
+              <el-table-column prop="createdAt" label="创建时间" width="180" align="center">
                 <template #default="scope">
-                  {{ scope.row.description || '未设置' }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="quantity" label="总数量" width="100" align="center" />
-              <el-table-column label="剩余数量" width="100" align="center">
-                <template #default="scope">
-                  {{ scope.row.quantity - scope.row.drawn }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="drawCount" label="一次抽取人数" width="140" align="center" />
-              <el-table-column prop="created_at" label="创建时间" width="180" align="center">
-                <template #default="scope">
-                  {{ scope.row.created_at ? new Date(scope.row.created_at).toLocaleString() : '未知' }}
+                  {{ scope.row.createdAt ? new Date(scope.row.createdAt).toLocaleString() : '未知' }}
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="150" align="center" fixed="right">
                 <template #default="scope">
-                  <el-button size="small" type="primary" link @click="editAward(scope.row)">编辑</el-button>
-                  <el-button size="small" type="danger" link @click="deleteAward(scope.row.id)">删除</el-button>
+                  <div class="action-buttons-inline">
+                    <el-button size="small" type="primary" link @click="editAward(scope.row)">编辑</el-button>
+                    <el-button size="small" type="danger" link @click="deleteAward(scope.row.id)">删除</el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -368,14 +366,14 @@
     </el-dialog>
 
     <!-- 添加奖项对话框 -->
-    <el-dialog v-model="showAwardDialog" title="添加奖项" width="500px">
+    <el-dialog v-model="showAwardDialog" :title="isEditingAward ? '编辑奖项' : '添加奖项'" width="500px">
       <el-form :model="newAward" label-width="100px">
         <el-form-item label="奖项名称" required>
-          <el-input v-model="newAward.level" placeholder="请输入奖项名称" />
+          <el-input v-model="newAward.name" placeholder="请输入奖项名称" />
         </el-form-item>
-        <el-form-item label="奖项描述" required>
+        <el-form-item label="奖项描述">
           <el-input 
-            v-model="newAward.name" 
+            v-model="newAward.description" 
             type="textarea" 
             :rows="3"
             placeholder="请输入奖项描述" 
@@ -383,40 +381,61 @@
         </el-form-item>
         <el-form-item label="奖项数量" required>
           <el-input-number 
-            v-model="newAward.quantity" 
+            v-model="newAward.count" 
             :min="1" 
             controls-position="right"
             style="width: 100%" 
           />
         </el-form-item>
         <el-form-item label="奖项等级" required>
-          <el-select v-model="newAward.awardLevel" placeholder="特等奖" style="width: 100%">
-            <el-option label="特等奖" value="特等奖" />
-            <el-option label="一等奖" value="一等奖" />
-            <el-option label="二等奖" value="二等奖" />
-            <el-option label="三等奖" value="三等奖" />
-            <el-option label="四等奖" value="四等奖" />
-            <el-option label="五等奖" value="五等奖" />
-            <el-option label="纪念奖" value="纪念奖" />
+          <el-select v-model="newAward.level" placeholder="请选择奖项等级" style="width: 100%">
+            <el-option label="1" :value="1" />
+            <el-option label="2" :value="2" />
+            <el-option label="3" :value="3" />
+            <el-option label="4" :value="4" />
+            <el-option label="5" :value="5" />
+            <el-option label="6" :value="6" />
+            <el-option label="7" :value="7" />
           </el-select>
         </el-form-item>
         <el-form-item label="一次抽取人数" required>
           <el-input-number 
-            v-model="newAward.drawCount" 
+            v-model="newAward.draw_count" 
             :min="1" 
-            :max="newAward.quantity" 
+            :max="newAward.count" 
             controls-position="right"
             style="width: 100%" 
           />
         </el-form-item>
-        <el-form-item label="奖项图片">
-          <el-input v-model="newAward.image" placeholder="请输入图片URL（可选）" />
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer" style="text-align: right;">
+          <el-button @click="cancelAwardEdit">取消</el-button>
+          <el-button type="primary" @click="saveAward">{{ isEditingAward ? '保存' : '确定' }}</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 编辑参与者对话框 -->
+    <el-dialog v-model="showEditParticipantDialog" title="编辑参与者" width="500px">
+      <el-form :model="editingParticipant" label-width="100px">
+        <el-form-item label="姓名" required>
+          <el-input v-model="editingParticipant.name" placeholder="请输入姓名" />
+        </el-form-item>
+        <el-form-item label="部门">
+          <el-input v-model="editingParticipant.department" placeholder="请输入部门" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="editingParticipant.phone" placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="editingParticipant.email" placeholder="请输入邮箱" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer" style="text-align: right;">
-          <el-button @click="showAwardDialog = false">取消</el-button>
-          <el-button type="primary" @click="addAward">确定</el-button>
+          <el-button @click="showEditParticipantDialog = false">取消</el-button>
+          <el-button type="primary" @click="saveParticipant">保存</el-button>
         </div>
       </template>
     </el-dialog>
@@ -449,6 +468,9 @@ import { participantAPI, awardAPI, lotteryAPI } from '../api/index.js'
 const activeMenu = ref('dashboard')
 const showImportDialog = ref(false)
 const showAwardDialog = ref(false)
+const showEditParticipantDialog = ref(false)
+const isEditingAward = ref(false)
+const editingAwardId = ref(null)
 
 // 统计数据
 const statistics = ref({
@@ -477,6 +499,8 @@ const paginatedParticipants = computed(() => {
   const end = start + pageSize.value
   return participants.value.slice(start, end)
 })
+
+
 
 // 获取参与者列表
 const fetchParticipants = async () => {
@@ -507,7 +531,7 @@ const fetchStatistics = async () => {
     
     statistics.value = {
       totalParticipants: participantsData.length,
-      totalAwards: awardsData.reduce((sum, award) => sum + award.quantity, 0),
+      totalAwards: awardsData.reduce((sum, award) => sum + award.count, 0),
       totalWinners: winnersData.length
     }
   } catch (error) {
@@ -524,12 +548,7 @@ const fetchAwards = async () => {
   try {
     awardsLoading.value = true
     const data = await awardAPI.getAll()
-    awards.value = data.map(award => ({
-      ...award,
-      drawn: award.drawn_count || 0,
-      drawCount: award.draw_count || award.quantity,
-      awardLevel: award.level
-    }))
+    awards.value = data
   } catch (error) {
     console.error('获取奖项列表失败:', error)
     ElMessage.error('获取奖项列表失败')
@@ -568,12 +587,20 @@ const settings = ref({
 
 // 新奖项表单
 const newAward = ref({
-  level: '',
   name: '',
-  quantity: 1,
-  drawCount: 1,
-  awardLevel: '',
-  image: ''
+  description: '',
+  count: 1,
+  level: 1,
+  draw_count: 1
+})
+
+// 编辑参与者表单
+const editingParticipant = ref({
+  id: null,
+  name: '',
+  department: '',
+  phone: '',
+  email: ''
 })
 
 // 方法
@@ -627,8 +654,41 @@ const clearRecords = () => {
 
 // 编辑参与者
 const editParticipant = (participant) => {
-  ElMessage.info(`编辑参与者: ${participant.name}`)
-  // TODO: 实现编辑对话框
+  editingParticipant.value = {
+    id: participant.id,
+    name: participant.name,
+    department: participant.department || '',
+    phone: participant.phone || '',
+    email: participant.email || ''
+  }
+  showEditParticipantDialog.value = true
+}
+
+// 保存参与者
+const saveParticipant = async () => {
+  if (!editingParticipant.value.name.trim()) {
+    ElMessage.error('请输入参与者姓名')
+    return
+  }
+  
+  try {
+    const participantData = {
+      name: editingParticipant.value.name.trim(),
+      department: editingParticipant.value.department.trim(),
+      phone: editingParticipant.value.phone.trim(),
+      email: editingParticipant.value.email.trim()
+    }
+    
+    await participantAPI.update(editingParticipant.value.id, participantData)
+    ElMessage.success('参与者信息更新成功')
+    showEditParticipantDialog.value = false
+    
+    // 重新获取参与者列表
+    await fetchParticipants()
+  } catch (error) {
+    console.error('更新参与者失败:', error)
+    ElMessage.error('更新参与者失败')
+  }
 }
 
 // 删除参与者
@@ -686,29 +746,32 @@ const clearParticipants = async () => {
 }
 
 const getAwardTagType = (level) => {
-  switch (level) {
-    case '特等奖':
+  const levelNum = parseInt(level)
+  switch (levelNum) {
+    case 1:
       return 'danger'
-    case '一等奖':
-      return 'danger'
-    case '二等奖':
+    case 2:
       return 'success'
-    case '三等奖':
+    case 3:
       return 'warning'
-    case '四等奖':
+    case 4:
+    case 5:
+    case 6:
+    case 7:
       return 'info'
-    case '五等奖':
-      return 'info'
-    case '纪念奖':
-      return ''
     default:
       return 'info'
   }
 }
 
 const addAward = async () => {
-  if (!newAward.value.level || !newAward.value.name || !newAward.value.awardLevel) {
+  if (!newAward.value.name || !newAward.value.level || !newAward.value.count || !newAward.value.draw_count) {
     ElMessage.error('请填写完整的奖项信息')
+    return
+  }
+  
+  if (newAward.value.draw_count > newAward.value.count) {
+    ElMessage.error('单次抽取人数不能大于奖项总数量')
     return
   }
   
@@ -717,37 +780,106 @@ const addAward = async () => {
       name: newAward.value.name,
       description: newAward.value.description || '',
       level: newAward.value.level,
-      quantity: newAward.value.quantity,
-      draw_count: newAward.value.drawCount,
-      image_url: newAward.value.image
+      count: newAward.value.count,
+      draw_count: newAward.value.draw_count
     }
     
-    await awardAPI.create(awardData)
+    const result = await awardAPI.create(awardData)
+    console.log('添加奖项成功:', result)
     ElMessage.success('奖项添加成功')
     showAwardDialog.value = false
     
     // 重置表单
-    newAward.value = {
-      level: '',
-      name: '',
-      quantity: 1,
-      drawCount: 1,
-      awardLevel: '',
-      image: ''
-    }
+    resetAwardForm()
     
     // 刷新奖项列表和统计数据
     await fetchAwards()
     await fetchStatistics()
   } catch (error) {
     console.error('添加奖项失败:', error)
-    ElMessage.error('添加奖项失败')
+    // 移除重复的错误提示，因为响应拦截器已经处理了
+    // ElMessage.error('添加奖项失败')
   }
 }
 
+// 保存奖项（新增或编辑）
+const saveAward = async () => {
+  if (isEditingAward.value) {
+    await updateAward()
+  } else {
+    await addAward()
+  }
+}
+
+// 更新奖项
+const updateAward = async () => {
+  if (!newAward.value.name || !newAward.value.level || !newAward.value.count || !newAward.value.draw_count) {
+    ElMessage.error('请填写完整的奖项信息')
+    return
+  }
+  
+  if (newAward.value.draw_count > newAward.value.count) {
+    ElMessage.error('单次抽取人数不能大于奖项总数量')
+    return
+  }
+  
+  try {
+    const awardData = {
+      name: newAward.value.name,
+      description: newAward.value.description || '',
+      level: newAward.value.level,
+      count: newAward.value.count,
+      draw_count: newAward.value.draw_count
+    }
+    
+    const result = await awardAPI.update(editingAwardId.value, awardData)
+    console.log('更新奖项成功:', result)
+    ElMessage.success('奖项更新成功')
+    showAwardDialog.value = false
+    
+    // 重置表单
+    resetAwardForm()
+    
+    // 刷新奖项列表和统计数据
+    await fetchAwards()
+    await fetchStatistics()
+  } catch (error) {
+    console.error('更新奖项失败:', error)
+    // 移除重复的错误提示，因为响应拦截器已经处理了
+    // ElMessage.error('更新奖项失败')
+  }
+}
+
+// 取消奖项编辑
+const cancelAwardEdit = () => {
+  showAwardDialog.value = false
+  resetAwardForm()
+}
+
+// 重置奖项表单
+const resetAwardForm = () => {
+  newAward.value = {
+    name: '',
+    description: '',
+    count: 1,
+    level: 1,
+    draw_count: 1
+  }
+  isEditingAward.value = false
+  editingAwardId.value = null
+}
+
 const editAward = (award) => {
-  ElMessage.info(`编辑奖项: ${award.name}`)
-  // 这里添加编辑逻辑
+  isEditingAward.value = true
+  editingAwardId.value = award.id
+  newAward.value = {
+    name: award.name,
+    description: award.description || '',
+    count: award.count,
+    level: award.level,
+    draw_count: award.draw_count || 1
+  }
+  showAwardDialog.value = true
 }
 
 const deleteAward = (id) => {
@@ -757,14 +889,16 @@ const deleteAward = (id) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await awardAPI.delete(id)
+      const result = await awardAPI.delete(id)
+      console.log('删除奖项成功:', result)
       ElMessage.success('删除成功')
       // 刷新奖项列表和统计数据
       await fetchAwards()
       await fetchStatistics()
     } catch (error) {
       console.error('删除奖项失败:', error)
-      ElMessage.error('删除奖项失败')
+      // 移除重复的错误提示，因为响应拦截器已经处理了
+      // ElMessage.error('删除奖项失败')
     }
   })
 }
@@ -862,6 +996,219 @@ onMounted(async () => {
 
 .user-info:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+
+
+/* 侧边栏 */
+.admin-sidebar {
+  width: 250px;
+  background-color: #304156;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-menu {
+  border: none;
+  height: 100%;
+}
+
+/* 内容区域 */
+.admin-content {
+  flex: 1;
+  padding: 24px;
+  background-color: #f0f2f5;
+  overflow-y: auto;
+}
+
+/* 页面标题 */
+.section-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 24px 0;
+}
+
+/* 页面头部 */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* 操作按钮组 */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.action-buttons-inline {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* 表格容器 */
+.table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* 分页容器 */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  background: white;
+  border-top: 1px solid #ebeef5;
+}
+
+/* 统计卡片 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.stat-icon.participants {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-icon.awards {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-icon.winners {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-icon.rate {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.stat-content h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #909399;
+  font-weight: 500;
+}
+
+.stat-number {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #303133;
+}
+
+/* 图表区域 */
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+.chart-card {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.chart-placeholder {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  background-color: #f5f7fa;
+  border-radius: 6px;
+}
+
+.chart-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+/* 导入区域 */
+.import-section {
+  padding: 20px 0;
+}
+
+/* 设置表单 */
+.settings-form {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+}
+
+.form-help {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .admin-main {
+    flex-direction: column;
+  }
+  
+  .admin-sidebar {
+    width: 100%;
+    height: auto;
+  }
+  
+  .admin-content {
+    padding: 16px;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .charts-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 主要内容区域 */

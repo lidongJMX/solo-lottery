@@ -12,7 +12,17 @@ const dbPath = path.join(__dirname, '../../data/lottery.db');
 export const db = new sqlite3.Database(dbPath);
 
 // 将回调函数转换为Promise
-export const dbRun = promisify(db.run.bind(db));
+export const dbRun = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ lastID: this.lastID, changes: this.changes });
+      }
+    });
+  });
+};
 export const dbGet = promisify(db.get.bind(db));
 export const dbAll = promisify(db.all.bind(db));
 
@@ -48,12 +58,6 @@ export async function initDatabase() {
         "updatedAt" DATETIME NOT NULL
       )
     `);
-
-
-
-
-
-
 
     // 轮次表：存储抽奖活动的轮次信息
     await dbRun(`

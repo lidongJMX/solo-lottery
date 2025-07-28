@@ -49,7 +49,7 @@ router.get('/:id', async (req, res) => {
 // 添加奖项
 router.post('/', async (req, res) => {
   try {
-    const { level, name, description, count } = req.body;
+    const { level, name, description, count, draw_count } = req.body;
     
     if (!level || !name || !count) {
       return res.status(400).json({ error: '奖项等级、名称和数量不能为空' });
@@ -59,10 +59,15 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '奖项数量必须大于0' });
     }
 
+    const drawCount = draw_count || 1;
+    if (drawCount <= 0 || drawCount > count) {
+      return res.status(400).json({ error: '单次抽取人数必须大于0且不能超过奖项总数' });
+    }
+
     const currentTime = new Date().toISOString();
     const result = await dbRun(
       'INSERT INTO Award (name, description, count, remaining_count, level, draw_count, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, description, count, count, level, 1, currentTime, currentTime]
+      [name, description, count, count, level, drawCount, currentTime, currentTime]
     );
 
     const newAward = await dbGet('SELECT * FROM Award WHERE id = ?', [result.lastID]);
@@ -77,7 +82,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { level, name, description, count } = req.body;
+    const { level, name, description, count, draw_count } = req.body;
 
     if (!level || !name || !count) {
       return res.status(400).json({ error: '奖项等级、名称和数量不能为空' });
@@ -85,6 +90,11 @@ router.put('/:id', async (req, res) => {
 
     if (count <= 0) {
       return res.status(400).json({ error: '奖项数量必须大于0' });
+    }
+
+    const drawCount = draw_count || 1;
+    if (drawCount <= 0 || drawCount > count) {
+      return res.status(400).json({ error: '单次抽取人数必须大于0且不能超过奖项总数' });
     }
 
     // 检查奖项是否存在
@@ -106,8 +116,8 @@ router.put('/:id', async (req, res) => {
     const currentTime = new Date().toISOString();
 
     await dbRun(
-      'UPDATE Award SET level = ?, name = ?, description = ?, count = ?, remaining_count = ?, updatedAt = ? WHERE id = ?',
-      [level, name, description, count, remaining_count, currentTime, id]
+      'UPDATE Award SET level = ?, name = ?, description = ?, count = ?, remaining_count = ?, draw_count = ?, updatedAt = ? WHERE id = ?',
+      [level, name, description, count, remaining_count, drawCount, currentTime, id]
     );
 
     const updatedAward = await dbGet('SELECT * FROM Award WHERE id = ?', [id]);

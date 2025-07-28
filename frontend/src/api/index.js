@@ -27,8 +27,11 @@ api.interceptors.response.use(
     return response.data
   },
   error => {
-    const message = error.response?.data?.error || '请求失败'
-    ElMessage.error(message)
+    // 只有在真正的错误状态码时才显示错误消息
+    if (error.response && error.response.status >= 400) {
+      const message = error.response?.data?.error || '请求失败'
+      ElMessage.error(message)
+    }
     return Promise.reject(error)
   }
 )
