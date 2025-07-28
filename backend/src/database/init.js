@@ -19,79 +19,167 @@ export const dbAll = promisify(db.all.bind(db));
 // 初始化数据库
 export async function initDatabase() {
   try {
-    // 创建参与者表
+    // 禁用外键约束检查，方便表结构的创建和修改
+    await dbRun('PRAGMA foreign_keys = false');
+
+    // 管理员表：存储系统管理员账户信息
     await dbRun(`
-      CREATE TABLE IF NOT EXISTS participants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        department TEXT,
-        phone TEXT,
-        email TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS "Admin" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "username" VARCHAR(255) NOT NULL,
+        "password" VARCHAR(255) NOT NULL,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL,
+        UNIQUE ("username" ASC)
       )
     `);
 
-    // 创建奖品表
+    // 奖项表：存储所有可抽取的奖项信息
     await dbRun(`
-      CREATE TABLE IF NOT EXISTS prizes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        level TEXT NOT NULL,
-        name TEXT NOT NULL,
-        image TEXT,
-        total_count INTEGER NOT NULL DEFAULT 1,
-        remaining_count INTEGER NOT NULL DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS "Award" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "name" VARCHAR(255) NOT NULL,
+        "description" TEXT,
+        "count" INTEGER NOT NULL,
+        "remaining_count" INTEGER NOT NULL,
+        "level" INTEGER NOT NULL,
+        "draw_count" INTEGER NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL
       )
     `);
 
-    // 创建中奖记录表
+
+
+
+
+
+
+    // 轮次表：存储抽奖活动的轮次信息
     await dbRun(`
-      CREATE TABLE IF NOT EXISTS winners (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        participant_id INTEGER NOT NULL,
-        prize_id INTEGER NOT NULL,
-        draw_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (participant_id) REFERENCES participants (id),
-        FOREIGN KEY (prize_id) REFERENCES prizes (id)
+      CREATE TABLE IF NOT EXISTS "Epoch" (
+        "epoch_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "epoch" INTEGER NOT NULL DEFAULT 0,
+        "status" TINYINT NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL
       )
     `);
 
-    // 插入默认奖品数据
-    const defaultPrizes = [
+    // 参与者表：存储参与抽奖的人员信息
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS "Participant" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "name" VARCHAR(255) NOT NULL,
+        "user_id" VARCHAR(255),
+        "department" VARCHAR(255),
+        "phone" VARCHAR(255),
+        "email" VARCHAR(255),
+        "weight" FLOAT NOT NULL DEFAULT '1',
+        "has_won" TINYINT(1) NOT NULL DEFAULT 0,
+        "win_count" INTEGER NOT NULL DEFAULT 0,
+        "high_award_level" INTEGER NOT NULL DEFAULT 100,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+
+    // 中奖记录表：存储所有中奖信息
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS "Winner" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "participant_id" INTEGER NOT NULL,
+        "award_id" INTEGER NOT NULL,
+        "epoch" INTEGER NOT NULL DEFAULT 0,
+        "draw_time" DATETIME DEFAULT CURRENT_TIMESTAMP,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL,
+        FOREIGN KEY ("participant_id") REFERENCES "Participant" ("id") ON DELETE NO ACTION ON UPDATE CASCADE,
+        FOREIGN KEY ("award_id") REFERENCES "Award" ("id") ON DELETE NO ACTION ON UPDATE CASCADE
+      )
+    `);
+
+    // 启用外键约束检查
+    await dbRun('PRAGMA foreign_keys = true');
+
+    // 插入默认管理员数据
+    const currentTime = new Date().toISOString();
+    const defaultAdmin = {
+      username: 'admin',
+      password: 'admin123', // 实际应用中应该加密存储
+      createdAt: currentTime,
+      updatedAt: currentTime
+    };
+
+    const existingAdmin = await dbGet('SELECT id FROM "Admin" WHERE username = ?', [defaultAdmin.username]);
+    if (!existingAdmin) {
+      await dbRun(
+        'INSERT INTO "Admin" ("username", "password", "createdAt", "updatedAt") VALUES (?, ?, ?, ?)',
+        [defaultAdmin.username, defaultAdmin.password, defaultAdmin.createdAt, defaultAdmin.updatedAt]
+      );
+    }
+
+    // 插入默认轮次数据
+    const defaultEpoch = {
+      epoch: 1,
+      status: 1,
+      createdAt: currentTime,
+      updatedAt: currentTime
+    };
+
+    const existingEpoch = await dbGet('SELECT epoch_id FROM "Epoch" WHERE epoch = ?', [defaultEpoch.epoch]);
+    if (!existingEpoch) {
+      await dbRun(
+        'INSERT INTO "Epoch" ("epoch", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?)',
+        [defaultEpoch.epoch, defaultEpoch.status, defaultEpoch.createdAt, defaultEpoch.updatedAt]
+      );
+    }
+
+    // 插入默认奖项数据
+    const defaultAwards = [
       {
-        level: '一等奖',
         name: '小天鹅 LittleSwan 洗烘套装',
-        image: 'https://ai-public.mastergo.com/ai/img_res/304a8126d488fa893ca027a2c8de9704.jpg',
-        total_count: 1,
-        remaining_count: 1
+        description: '一等奖：高端洗烘套装，让生活更便捷',
+        count: 1,
+        remaining_count: 1,
+        level: 1,
+        draw_count: 1,
+        createdAt: currentTime,
+        updatedAt: currentTime
       },
       {
-        level: '二等奖',
         name: '戴森吸尘器',
-        image: 'https://ai-public.mastergo.com/ai/img_res/52b3e08599c214acc6802d5f6fbb8503.jpg',
-        total_count: 2,
-        remaining_count: 2
+        description: '二等奖：高性能无线吸尘器，清洁好帮手',
+        count: 2,
+        remaining_count: 2,
+        level: 2,
+        draw_count: 1,
+        createdAt: currentTime,
+        updatedAt: currentTime
       },
       {
-        level: '三等奖',
         name: '华为智能手表',
-        image: 'https://ai-public.mastergo.com/ai/img_res/37bc491a791bc693235bc252a0725d3f.jpg',
-        total_count: 5,
-        remaining_count: 5
+        description: '三等奖：智能运动手表，健康生活伴侣',
+        count: 5,
+        remaining_count: 5,
+        level: 3,
+        draw_count: 1,
+        createdAt: currentTime,
+        updatedAt: currentTime
       }
     ];
 
-    for (const prize of defaultPrizes) {
-      const existing = await dbGet('SELECT id FROM prizes WHERE level = ? AND name = ?', [prize.level, prize.name]);
+    for (const award of defaultAwards) {
+      const existing = await dbGet('SELECT id FROM "Award" WHERE name = ? AND level = ?', [award.name, award.level]);
       if (!existing) {
         await dbRun(
-          'INSERT INTO prizes (level, name, image, total_count, remaining_count) VALUES (?, ?, ?, ?, ?)',
-          [prize.level, prize.name, prize.image, prize.total_count, prize.remaining_count]
+          'INSERT INTO "Award" ("name", "description", "count", "remaining_count", "level", "draw_count", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [award.name, award.description, award.count, award.remaining_count, award.level, award.draw_count, award.createdAt, award.updatedAt]
         );
       }
     }
 
-    // 插入默认参与者数据
+    // 插入默认参与者数据到原表
     const defaultParticipants = [
       '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
       '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
@@ -100,11 +188,16 @@ export async function initDatabase() {
     ];
 
     for (const name of defaultParticipants) {
-      const existing = await dbGet('SELECT id FROM participants WHERE name = ?', [name]);
+      const existing = await dbGet('SELECT id FROM "Participant" WHERE name = ?', [name]);
       if (!existing) {
-        await dbRun('INSERT INTO participants (name) VALUES (?)', [name]);
+        await dbRun(
+          'INSERT INTO "Participant" ("name", "user_id", "department", "weight", "has_won", "win_count", "high_award_level", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [name, null, '技术部', 1.0, 0, 0, 100, currentTime, currentTime]
+        );
       }
     }
+
+
 
     console.log('数据库表创建成功，默认数据插入完成');
   } catch (error) {

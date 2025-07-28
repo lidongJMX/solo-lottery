@@ -8,7 +8,7 @@ import prizeRoutes from './routes/prizes.js';
 import lotteryRoutes from './routes/lottery.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
 // 中间件
 app.use(helmet());
