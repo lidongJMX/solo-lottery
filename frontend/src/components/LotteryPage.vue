@@ -15,9 +15,9 @@
     <div class="w-[1440px] max-w-full relative">
       <!-- 主要内容 -->
       <div class="max-w-[1200px] mx-auto mt-0 rounded-lg p-8">
-        <!-- 奖品展示 -->
+        <!-- 奖项展示 -->
         <div class="flex flex-col items-center">
-          <!-- 奖品信息容器 -->
+          <!-- 奖项信息容器 -->
           <div class="flex flex-col items-center rounded-xl w-full relative">
             <div
               class="w-[300px] h-[300px] bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-2 border-yellow-400 shadow-xl rounded-lg p-4 mb-4 backdrop-blur-sm transition-all duration-1000 transform-gpu"
@@ -27,7 +27,7 @@
                 :class="{ 'scale-0 opacity-0': showWinnerNames }">
             </div>
 
-            <!-- items-center: 默认显示的奖品信息 -->
+            <!-- items-center: 默认显示的奖项信息 -->
             <div class="items-center transition-all duration-1000 transform-gpu"
               :class="{ 'scale-0 opacity-0': showWinnerNames }">
               <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center transition-all duration-1000 transform-gpu"
@@ -77,7 +77,7 @@
               <span class="text-yellow-300 font-medium"></span>
               <el-input-number v-model="drawCount" :min="1" :max="10" class="!rounded-button custom-input-number" />
             </div>
-            <!-- 奖品选择 -->
+            <!-- 奖项选择 -->
             <div class="flex items-center gap-2">
               <el-button :icon="ArrowLeft" type="default"
                 class="!rounded-button !bg-yellow-500/20 !border-yellow-400 !text-yellow-300 hover:!bg-yellow-500/30 hover:!text-yellow-200"
@@ -123,7 +123,7 @@
     <el-dialog v-model="dialogVisible" title="中奖名单" width="30%">
       <el-table :data="winners" style="width: 100%">
         <el-table-column prop="name" label="姓名" />
-        <el-table-column prop="prize" label="奖品" />
+        <el-table-column prop="award" label="奖项" />
       </el-table>
     </el-dialog>
 
@@ -261,7 +261,7 @@ const drawWinners = () => {
     const winner = availableParticipants.splice(randomIndex, 1)[0];
     drawnWinners.push({
       name: winner,
-      prize: `${currentPrize.value.level} - ${currentPrize.value.name}`
+      award: `${currentPrize.value.level} - ${currentPrize.value.name}`
     });
   }
 

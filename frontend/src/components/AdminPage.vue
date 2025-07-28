@@ -84,7 +84,7 @@
                 <el-icon><Trophy /></el-icon>
               </div>
               <div class="stat-content">
-                <h3>奖品总数</h3>
+                <h3>奖项总数</h3>
                 <p class="stat-number">{{ statistics.totalPrizes }}</p>
               </div>
             </div>
@@ -113,10 +113,10 @@
           <!-- 图表区域 -->
           <div class="charts-section">
             <div class="chart-card">
-              <h3>奖品分布统计</h3>
+              <h3>奖项分布统计</h3>
               <div class="chart-placeholder">
                 <el-icon class="chart-icon"><Histogram /></el-icon>
-                <p>饼图：各等级奖品数量分布</p>
+                <p>饼图：各等级奖项数量分布</p>
               </div>
             </div>
             
@@ -240,7 +240,7 @@
             <el-table :data="lotteryRecords" style="width: 100%" stripe>
               <el-table-column prop="id" label="记录ID" width="100" />
               <el-table-column prop="winnerName" label="中奖者" width="120" />
-              <el-table-column prop="prizeName" label="奖品" width="200" />
+              <el-table-column prop="prizeName" label="奖项" width="200" />
               <el-table-column prop="prizeLevel" label="奖项" width="100" />
               <el-table-column prop="drawTime" label="抽奖时间" width="180" />
               <el-table-column prop="operator" label="操作员" width="100" />
@@ -357,7 +357,7 @@
             style="width: 100%" 
           />
         </el-form-item>
-        <el-form-item label="奖品图片">
+        <el-form-item label="奖项图片">
           <el-input v-model="newPrize.image" placeholder="请输入图片URL（可选）" />
         </el-form-item>
       </el-form>
@@ -438,7 +438,7 @@ const participants = ref([
   }
 ])
 
-// 奖品数据
+// 奖项数据
 const prizes = ref([
   {
     id: 1,
@@ -500,7 +500,7 @@ const settings = ref({
   autoSave: true
 })
 
-// 新奖品表单
+// 新奖项表单
 const newPrize = ref({
   level: '',
   name: '',
@@ -611,7 +611,7 @@ const addPrize = () => {
     return
   }
   
-  const prize = {
+  const award = {
     id: Date.now(),
     level: newPrize.value.level,
     name: newPrize.value.name,
@@ -622,7 +622,7 @@ const addPrize = () => {
     drawn: 0
   }
   
-  prizes.value.push(prize)
+  prizes.value.push(award)
   ElMessage.success('奖项添加成功')
   showPrizeDialog.value = false
   
@@ -637,13 +637,13 @@ const addPrize = () => {
   }
 }
 
-const editPrize = (prize) => {
-  ElMessage.info(`编辑奖品: ${prize.name}`)
+const editPrize = (award) => {
+  ElMessage.info(`编辑奖项: ${award.name}`)
   // 这里添加编辑逻辑
 }
 
 const deletePrize = (id) => {
-  ElMessageBox.confirm('确认删除该奖品？', '提示', {
+  ElMessageBox.confirm('确认删除该奖项？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
@@ -905,14 +905,14 @@ onMounted(() => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 奖品网格 */
-.prizes-grid {
+/* 奖项网格 */
+.awards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
 }
 
-.prize-card {
+.award-card {
   background: white;
   border-radius: 12px;
   padding: 20px;
@@ -920,12 +920,12 @@ onMounted(() => {
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.prize-card:hover {
+.award-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-.prize-image {
+.award-image {
   width: 100%;
   height: 160px;
   border-radius: 8px;
@@ -933,32 +933,32 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.prize-image img {
+.award-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.prize-info h3 {
+.award-info h3 {
   margin: 0 0 8px 0;
   font-size: 18px;
   font-weight: 600;
   color: #303133;
 }
 
-.prize-info p {
+.award-info p {
   margin: 0 0 12px 0;
   color: #606266;
   font-size: 14px;
 }
 
-.prize-stats {
+.award-stats {
   display: flex;
   gap: 16px;
   margin-bottom: 16px;
 }
 
-.prize-stats span {
+.award-stats span {
   font-size: 12px;
   color: #909399;
   background-color: #f5f7fa;
@@ -966,7 +966,7 @@ onMounted(() => {
   border-radius: 4px;
 }
 
-.prize-actions {
+.award-actions {
   display: flex;
   gap: 8px;
 }
@@ -1020,7 +1020,7 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
   
-  .prizes-grid {
+  .awards-grid {
     grid-template-columns: 1fr;
   }
   
