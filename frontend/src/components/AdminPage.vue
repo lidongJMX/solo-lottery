@@ -46,7 +46,7 @@
             <el-icon><User /></el-icon>
             <span>参与者管理</span>
           </el-menu-item>
-          <el-menu-item index="prizes">
+          <el-menu-item index="awards">
             <el-icon><Trophy /></el-icon>
             <span>奖项管理</span>
           </el-menu-item>
@@ -80,12 +80,12 @@
             </div>
             
             <div class="stat-card">
-              <div class="stat-icon prizes">
+              <div class="stat-icon awards">
                 <el-icon><Trophy /></el-icon>
               </div>
               <div class="stat-content">
                 <h3>奖项总数</h3>
-                <p class="stat-number">{{ statistics.totalPrizes }}</p>
+                <p class="stat-number">{{ statistics.totalAwards }}</p>
               </div>
             </div>
             
@@ -152,12 +152,35 @@
           
           <!-- 参与者列表 -->
           <div class="table-container">
-            <el-table :data="participants" style="width: 100%" stripe>
+            <el-table 
+              :data="paginatedParticipants" 
+              style="width: 100%" 
+              stripe
+              v-loading="loading"
+              element-loading-text="加载中..."
+            >
               <el-table-column prop="id" label="ID" width="80" />
               <el-table-column prop="name" label="姓名" width="120" />
-              <el-table-column prop="department" label="部门" width="150" />
-              <el-table-column prop="phone" label="联系电话" width="130" />
-              <el-table-column prop="email" label="邮箱" width="200" />
+              <el-table-column prop="department" label="部门" width="150">
+                <template #default="scope">
+                  {{ scope.row.department || '未设置' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="phone" label="联系电话" width="130">
+                <template #default="scope">
+                  {{ scope.row.phone || '未设置' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="email" label="邮箱" width="200">
+                <template #default="scope">
+                  {{ scope.row.email || '未设置' }}
+                </template>
+              </el-table-column>
+              <el-table-column label="中奖次数" width="100" align="center">
+                <template #default="scope">
+                  {{ scope.row.win_count || 0 }}
+                </template>
+              </el-table-column>
               <el-table-column prop="status" label="状态" width="100">
                 <template #default="scope">
                   <el-tag :type="scope.row.status === '已中奖' ? 'success' : 'info'">
@@ -165,55 +188,84 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="150">
+              <el-table-column label="创建时间" width="180">
                 <template #default="scope">
-                  <el-button size="small" @click="editParticipant(scope.row)">编辑</el-button>
-                  <el-button size="small" type="danger" @click="deleteParticipant(scope.row.id)">删除</el-button>
+                  {{ new Date(scope.row.createdAt).toLocaleString() }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="150" fixed="right">
+                <template #default="scope">
+                  <div class="action-buttons-inline">
+                    <el-button size="small" type="primary" @click="editParticipant(scope.row)">编辑</el-button>
+                    <el-button size="small" type="danger" @click="deleteParticipant(scope.row.id)">删除</el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
+            
+            <!-- 分页组件 -->
+            <div class="pagination-container">
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                :total="participants.length"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="handleSizeChange"
+                @current-change="handleCurrentChange"
+              />
+            </div>
           </div>
         </div>
 
         <!-- 奖项管理 -->
-        <div v-if="activeMenu === 'prizes'" class="prizes">
+        <div v-if="activeMenu === 'awards'" class="awards">
           <div class="section-header">
             <h2 class="section-title">奖项管理</h2>
-            <el-button type="primary" @click="showPrizeDialog = true">
+            <el-button type="primary" @click="showAwardDialog = true">
               <el-icon><Plus /></el-icon>
               添加奖项
             </el-button>
           </div>
           
           <div class="table-container">
-            <el-table :data="prizes" style="width: 100%" stripe>
+            <el-table 
+              :data="awards" 
+              style="width: 100%" 
+              stripe
+              v-loading="awardsLoading"
+              element-loading-text="加载奖项数据中..."
+            >
               <el-table-column prop="id" label="序号" width="80" align="center" />
               <el-table-column prop="level" label="奖项名称" width="120" align="center">
                 <template #default="scope">
-                  <el-tag :type="getPrizeTagType(scope.row.level)" size="large">
+                  <el-tag :type="getAwardTagType(scope.row.level)" size="large">
                     {{ scope.row.level }}
                   </el-tag>
                 </template>
               </el-table-column>
               <el-table-column prop="name" label="奖项描述" min-width="200" />
+              <el-table-column prop="description" label="详细描述" min-width="150">
+                <template #default="scope">
+                  {{ scope.row.description || '未设置' }}
+                </template>
+              </el-table-column>
               <el-table-column prop="quantity" label="总数量" width="100" align="center" />
               <el-table-column label="剩余数量" width="100" align="center">
                 <template #default="scope">
                   {{ scope.row.quantity - scope.row.drawn }}
                 </template>
               </el-table-column>
-              <el-table-column prop="prizeLevel" label="奖项等级" width="120" align="center">
+              <el-table-column prop="drawCount" label="一次抽取人数" width="140" align="center" />
+              <el-table-column prop="created_at" label="创建时间" width="180" align="center">
                 <template #default="scope">
-                  <el-tag :type="getPrizeTagType(scope.row.prizeLevel || scope.row.level)">
-                    {{ scope.row.prizeLevel || scope.row.level }}
-                  </el-tag>
+                  {{ scope.row.created_at ? new Date(scope.row.created_at).toLocaleString() : '未知' }}
                 </template>
               </el-table-column>
-              <el-table-column prop="drawCount" label="一次抽取人数" width="140" align="center" />
-              <el-table-column label="操作" width="150" align="center">
+              <el-table-column label="操作" width="150" align="center" fixed="right">
                 <template #default="scope">
-                  <el-button size="small" type="primary" link @click="editPrize(scope.row)">编辑</el-button>
-                  <el-button size="small" type="danger" link @click="deletePrize(scope.row.id)">删除</el-button>
+                  <el-button size="small" type="primary" link @click="editAward(scope.row)">编辑</el-button>
+                  <el-button size="small" type="danger" link @click="deleteAward(scope.row.id)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -240,8 +292,8 @@
             <el-table :data="lotteryRecords" style="width: 100%" stripe>
               <el-table-column prop="id" label="记录ID" width="100" />
               <el-table-column prop="winnerName" label="中奖者" width="120" />
-              <el-table-column prop="prizeName" label="奖项" width="200" />
-              <el-table-column prop="prizeLevel" label="奖项" width="100" />
+              <el-table-column prop="awardName" label="奖项" width="200" />
+              <el-table-column prop="awardLevel" label="奖项" width="100" />
               <el-table-column prop="drawTime" label="抽奖时间" width="180" />
               <el-table-column prop="operator" label="操作员" width="100" />
               <el-table-column label="操作" width="100">
@@ -316,14 +368,14 @@
     </el-dialog>
 
     <!-- 添加奖项对话框 -->
-    <el-dialog v-model="showPrizeDialog" title="添加奖项" width="500px">
-      <el-form :model="newPrize" label-width="100px">
+    <el-dialog v-model="showAwardDialog" title="添加奖项" width="500px">
+      <el-form :model="newAward" label-width="100px">
         <el-form-item label="奖项名称" required>
-          <el-input v-model="newPrize.level" placeholder="请输入奖项名称" />
+          <el-input v-model="newAward.level" placeholder="请输入奖项名称" />
         </el-form-item>
         <el-form-item label="奖项描述" required>
           <el-input 
-            v-model="newPrize.name" 
+            v-model="newAward.name" 
             type="textarea" 
             :rows="3"
             placeholder="请输入奖项描述" 
@@ -331,14 +383,14 @@
         </el-form-item>
         <el-form-item label="奖项数量" required>
           <el-input-number 
-            v-model="newPrize.quantity" 
+            v-model="newAward.quantity" 
             :min="1" 
             controls-position="right"
             style="width: 100%" 
           />
         </el-form-item>
         <el-form-item label="奖项等级" required>
-          <el-select v-model="newPrize.prizeLevel" placeholder="特等奖" style="width: 100%">
+          <el-select v-model="newAward.awardLevel" placeholder="特等奖" style="width: 100%">
             <el-option label="特等奖" value="特等奖" />
             <el-option label="一等奖" value="一等奖" />
             <el-option label="二等奖" value="二等奖" />
@@ -350,21 +402,21 @@
         </el-form-item>
         <el-form-item label="一次抽取人数" required>
           <el-input-number 
-            v-model="newPrize.drawCount" 
+            v-model="newAward.drawCount" 
             :min="1" 
-            :max="newPrize.quantity" 
+            :max="newAward.quantity" 
             controls-position="right"
             style="width: 100%" 
           />
         </el-form-item>
         <el-form-item label="奖项图片">
-          <el-input v-model="newPrize.image" placeholder="请输入图片URL（可选）" />
+          <el-input v-model="newAward.image" placeholder="请输入图片URL（可选）" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer" style="text-align: right;">
-          <el-button @click="showPrizeDialog = false">取消</el-button>
-          <el-button type="primary" @click="addPrize">确定</el-button>
+          <el-button @click="showAwardDialog = false">取消</el-button>
+          <el-button type="primary" @click="addAward">确定</el-button>
         </div>
       </template>
     </el-dialog>
@@ -391,16 +443,17 @@ import {
   ArrowDown
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { participantAPI, awardAPI, lotteryAPI } from '../api/index.js'
 
 // 响应式数据
 const activeMenu = ref('dashboard')
 const showImportDialog = ref(false)
-const showPrizeDialog = ref(false)
+const showAwardDialog = ref(false)
 
 // 统计数据
 const statistics = ref({
   totalParticipants: 156,
-  totalPrizes: 25,
+  totalAwards: 25,
   totalWinners: 23,
 })
 
@@ -411,82 +464,95 @@ const winningRate = computed(() => {
 })
 
 // 参与者数据
-const participants = ref([
-  {
-    id: 1,
-    name: '张三',
-    department: '技术部',
-    phone: '13800138001',
-    email: 'zhangsan@example.com',
-    status: '未中奖'
-  },
-  {
-    id: 2,
-    name: '李四',
-    department: '市场部',
-    phone: '13800138002',
-    email: 'lisi@example.com',
-    status: '已中奖'
-  },
-  {
-    id: 3,
-    name: '王五',
-    department: '人事部',
-    phone: '13800138003',
-    email: 'wangwu@example.com',
-    status: '未中奖'
+const participants = ref([])
+const loading = ref(false)
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(10)
+
+// 分页后的参与者数据
+const paginatedParticipants = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return participants.value.slice(start, end)
+})
+
+// 获取参与者列表
+const fetchParticipants = async () => {
+  try {
+    loading.value = true
+    const data = await participantAPI.getAll()
+    // 为每个参与者添加状态信息
+    participants.value = data.map(participant => ({
+      ...participant,
+      status: participant.has_won ? '已中奖' : '未中奖'
+    }))
+  } catch (error) {
+    console.error('获取参与者列表失败:', error)
+    ElMessage.error('获取参与者列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 获取统计数据
+const fetchStatistics = async () => {
+  try {
+    const [participantsData, winnersData, awardsData] = await Promise.all([
+      participantAPI.getAll(),
+      lotteryAPI.getWinners(),
+      awardAPI.getAll()
+    ])
+    
+    statistics.value = {
+      totalParticipants: participantsData.length,
+      totalAwards: awardsData.reduce((sum, award) => sum + award.quantity, 0),
+      totalWinners: winnersData.length
+    }
+  } catch (error) {
+    console.error('获取统计数据失败:', error)
+  }
+}
 
 // 奖项数据
-const prizes = ref([
-  {
-    id: 1,
-    level: '一等奖',
-    name: '华为mate70pro+',
-    quantity: 8,
-    drawn: 3,
-    drawCount: 4,
-    prizeLevel: '一等奖',
-    image: '/src/assets/prize/一等奖.png'
-  },
-  {
-    id: 2,
-    level: '二等奖',
-    name: '华为puraX',
-    quantity: 120,
-    drawn: 10,
-    drawCount: 10,
-    prizeLevel: '二等奖',
-    image: 'https://ai-public.mastergo.com/ai/img_res/52b3e08599c214acc6802d5f6fbb8503.jpg'
-  },
-  {
-    id: 3,
-    level: '三等奖',
-    name: '洗衣液一袋',
-    quantity: 200,
-    drawn: 0,
-    drawCount: 25,
-    prizeLevel: '三等奖',
-    image: 'https://ai-public.mastergo.com/ai/img_res/37bc491a791bc693235bc252a0725d3f.jpg'
+const awards = ref([])
+const awardsLoading = ref(false)
+
+// 获取奖项列表
+const fetchAwards = async () => {
+  try {
+    awardsLoading.value = true
+    const data = await awardAPI.getAll()
+    awards.value = data.map(award => ({
+      ...award,
+      drawn: award.drawn_count || 0,
+      drawCount: award.draw_count || award.quantity,
+      awardLevel: award.level
+    }))
+  } catch (error) {
+    console.error('获取奖项列表失败:', error)
+    ElMessage.error('获取奖项列表失败')
+  } finally {
+    awardsLoading.value = false
   }
-])
+}
 
 // 抽奖记录
 const lotteryRecords = ref([
   {
     id: 1,
     winnerName: '张三',
-    prizeName: '小天鹅洗烘套装',
-    prizeLevel: '一等奖',
+    awardName: '小天鹅洗烘套装',
+    awardLevel: '一等奖',
     drawTime: '2024-12-19 14:30:25',
     operator: '管理员'
   },
   {
     id: 2,
     winnerName: '李四',
-    prizeName: '戴森吸尘器',
-    prizeLevel: '二等奖',
+    awardName: '戴森吸尘器',
+    awardLevel: '二等奖',
     drawTime: '2024-12-19 14:32:15',
     operator: '管理员'
   }
@@ -501,12 +567,12 @@ const settings = ref({
 })
 
 // 新奖项表单
-const newPrize = ref({
+const newAward = ref({
   level: '',
   name: '',
   quantity: 1,
   drawCount: 1,
-  prizeLevel: '',
+  awardLevel: '',
   image: ''
 })
 
@@ -546,16 +612,7 @@ const exportWinners = () => {
   // 这里添加实际的导出逻辑
 }
 
-const clearParticipants = () => {
-  ElMessageBox.confirm('确认清空所有参与者名单？', '警告', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    participants.value = []
-    ElMessage.success('参与者名单已清空')
-  })
-}
+// clearParticipants 方法已在上面重新实现
 
 const clearRecords = () => {
   ElMessageBox.confirm('确认清空所有抽奖记录？', '警告', {
@@ -568,23 +625,67 @@ const clearRecords = () => {
   })
 }
 
+// 编辑参与者
 const editParticipant = (participant) => {
   ElMessage.info(`编辑参与者: ${participant.name}`)
-  // 这里添加编辑逻辑
+  // TODO: 实现编辑对话框
 }
 
-const deleteParticipant = (id) => {
-  ElMessageBox.confirm('确认删除该参与者？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    participants.value = participants.value.filter(p => p.id !== id)
+// 删除参与者
+const deleteParticipant = async (id) => {
+  try {
+    await ElMessageBox.confirm('确认删除该参与者？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await participantAPI.delete(id)
     ElMessage.success('删除成功')
-  })
+    // 重新获取参与者列表
+    await fetchParticipants()
+    await fetchStatistics()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除参与者失败:', error)
+    }
+  }
 }
 
-const getPrizeTagType = (level) => {
+// 分页事件处理
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+}
+
+// 清空参与者名单
+const clearParticipants = async () => {
+  try {
+    await ElMessageBox.confirm('确认清空所有参与者名单？', '警告', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    // 批量删除所有参与者
+    const deletePromises = participants.value.map(p => participantAPI.delete(p.id))
+    await Promise.all(deletePromises)
+    
+    ElMessage.success('参与者名单已清空')
+    await fetchParticipants()
+    await fetchStatistics()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空参与者名单失败:', error)
+    }
+  }
+}
+
+const getAwardTagType = (level) => {
   switch (level) {
     case '特等奖':
       return 'danger'
@@ -605,51 +706,66 @@ const getPrizeTagType = (level) => {
   }
 }
 
-const addPrize = () => {
-  if (!newPrize.value.level || !newPrize.value.name || !newPrize.value.prizeLevel) {
+const addAward = async () => {
+  if (!newAward.value.level || !newAward.value.name || !newAward.value.awardLevel) {
     ElMessage.error('请填写完整的奖项信息')
     return
   }
   
-  const award = {
-    id: Date.now(),
-    level: newPrize.value.level,
-    name: newPrize.value.name,
-    quantity: newPrize.value.quantity,
-    drawCount: newPrize.value.drawCount,
-    prizeLevel: newPrize.value.prizeLevel,
-    image: newPrize.value.image,
-    drawn: 0
-  }
-  
-  prizes.value.push(award)
-  ElMessage.success('奖项添加成功')
-  showPrizeDialog.value = false
-  
-  // 重置表单
-  newPrize.value = {
-    level: '',
-    name: '',
-    quantity: 1,
-    drawCount: 1,
-    prizeLevel: '',
-    image: ''
+  try {
+    const awardData = {
+      name: newAward.value.name,
+      description: newAward.value.description || '',
+      level: newAward.value.level,
+      quantity: newAward.value.quantity,
+      draw_count: newAward.value.drawCount,
+      image_url: newAward.value.image
+    }
+    
+    await awardAPI.create(awardData)
+    ElMessage.success('奖项添加成功')
+    showAwardDialog.value = false
+    
+    // 重置表单
+    newAward.value = {
+      level: '',
+      name: '',
+      quantity: 1,
+      drawCount: 1,
+      awardLevel: '',
+      image: ''
+    }
+    
+    // 刷新奖项列表和统计数据
+    await fetchAwards()
+    await fetchStatistics()
+  } catch (error) {
+    console.error('添加奖项失败:', error)
+    ElMessage.error('添加奖项失败')
   }
 }
 
-const editPrize = (award) => {
+const editAward = (award) => {
   ElMessage.info(`编辑奖项: ${award.name}`)
   // 这里添加编辑逻辑
 }
 
-const deletePrize = (id) => {
+const deleteAward = (id) => {
   ElMessageBox.confirm('确认删除该奖项？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    prizes.value = prizes.value.filter(p => p.id !== id)
-    ElMessage.success('删除成功')
+  }).then(async () => {
+    try {
+      await awardAPI.delete(id)
+      ElMessage.success('删除成功')
+      // 刷新奖项列表和统计数据
+      await fetchAwards()
+      await fetchStatistics()
+    } catch (error) {
+      console.error('删除奖项失败:', error)
+      ElMessage.error('删除奖项失败')
+    }
   })
 }
 
@@ -680,9 +796,12 @@ const resetSettings = () => {
 }
 
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   // 初始化数据
   console.log('管理员页面已加载')
+  await fetchParticipants()
+  await fetchAwards()
+  await fetchStatistics()
 })
 </script>
 
@@ -834,8 +953,27 @@ onMounted(() => {
   background: linear-gradient(135deg, #667eea, #764ba2);
 }
 
-.stat-icon.prizes {
+.stat-icon.awards {
   background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+/* 操作按钮样式 */
+.action-buttons-inline {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.action-buttons-inline .el-button {
+  margin: 0;
+}
+
+/* 分页容器样式 */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 20px 0;
 }
 
 .stat-icon.winners {

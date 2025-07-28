@@ -22,7 +22,7 @@
             <div
               class="w-[300px] h-[300px] bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-2 border-yellow-400 shadow-xl rounded-lg p-4 mb-4 backdrop-blur-sm transition-all duration-1000 transform-gpu"
               :class="{ 'scale-0 opacity-0': showWinnerNames }">
-              <img :src="currentPrize.image" :alt="currentPrize.name"
+              <img :src="currentAward.image" :alt="currentAward.name"
                 class="w-full h-full object-contain transition-all duration-1000 transform-gpu"
                 :class="{ 'scale-0 opacity-0': showWinnerNames }">
             </div>
@@ -31,9 +31,9 @@
             <div class="items-center transition-all duration-1000 transform-gpu"
               :class="{ 'scale-0 opacity-0': showWinnerNames }">
               <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center transition-all duration-1000 transform-gpu"
-                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentPrize.level }}</h2>
+                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.level }}</h2>
               <p class="text-white text-base mb-4 text-center transition-all duration-1000 transform-gpu"
-                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentPrize.name }}</p>
+                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.name }}</p>
             </div>
 
             <!-- items-name: 抽奖时显示的参与者姓名 -->
@@ -81,12 +81,12 @@
             <div class="flex items-center gap-2">
               <el-button :icon="ArrowLeft" type="default"
                 class="!rounded-button !bg-yellow-500/20 !border-yellow-400 !text-yellow-300 hover:!bg-yellow-500/30 hover:!text-yellow-200"
-                :disabled="currentIndex === 0" @click="selectPrize(currentIndex - 1)">
+                :disabled="currentIndex === 0" @click="selectAward(currentIndex - 1)">
               </el-button>
-              <span class="text-yellow-300 text-lg px-3 font-semibold">{{ currentPrize.level }}</span>
+              <span class="text-yellow-300 text-lg px-3 font-semibold">{{ currentAward.level }}</span>
               <el-button :icon="ArrowRight" type="default"
                 class="!rounded-button !bg-yellow-500/20 !border-yellow-400 !text-yellow-300 hover:!bg-yellow-500/30 hover:!text-yellow-200"
-                :disabled="currentIndex === prizes.length - 1" @click="selectPrize(currentIndex + 1)">
+                :disabled="currentIndex === awards.length - 1" @click="selectAward(currentIndex + 1)">
               </el-button>
             </div>
 
@@ -150,7 +150,7 @@
             🎉 恭喜中奖 🎉
           </h1>
           <div class="text-2xl text-yellow-200 font-semibold">
-            {{ currentPrize.level }} - {{ currentPrize.name }}
+            {{ currentAward.level }} - {{ currentAward.name }}
           </div>
         </div>
 
@@ -203,12 +203,12 @@ const stopEdit = () => {
   isEditing.value = false;
 };
 
-const prizes = ref([
+const awards = ref([
   {
     level: '一等奖',
     name: '小天鹅 LittleSwan 洗烘套装',
     // image: 'https://ai-public.mastergo.com/ai/img_res/304a8126d488fa893ca027a2c8de9704.jpg'
-    image: new URL('../assets/prize/一等奖.png', import.meta.url).href
+    image: new URL('../assets/award/一等奖.png', import.meta.url).href
   },
   {
     level: '二等奖',
@@ -223,7 +223,7 @@ const prizes = ref([
 ]);
 
 const currentIndex = ref(0);
-const currentPrize = ref(prizes.value[0]);
+const currentAward = ref(awards.value[0]);
 const dialogVisible = ref(false);
 const isDrawing = ref(false);
 const drawCount = ref(1);
@@ -261,7 +261,7 @@ const drawWinners = () => {
     const winner = availableParticipants.splice(randomIndex, 1)[0];
     drawnWinners.push({
       name: winner,
-      award: `${currentPrize.value.level} - ${currentPrize.value.name}`
+      award: `${currentAward.value.level} - ${currentAward.value.name}`
     });
   }
 
@@ -269,9 +269,9 @@ const drawWinners = () => {
   remainingCount.value -= count;
 };
 
-const selectPrize = (index) => {
+const selectAward = (index) => {
   currentIndex.value = index;
-  currentPrize.value = prizes.value[index];
+  currentAward.value = awards.value[index];
 };
 
 const startDraw = () => {

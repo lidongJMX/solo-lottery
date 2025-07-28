@@ -6,7 +6,7 @@ const router = express.Router();
 // 获取所有参与者
 router.get('/', async (req, res) => {
   try {
-    const participants = await dbAll('SELECT * FROM Participant ORDER BY name');
+    const participants = await dbAll('SELECT * FROM Participant ORDER BY id');
     res.json(participants);
   } catch (error) {
     console.error('获取参与者列表失败:', error);
@@ -39,7 +39,7 @@ router.get('/names', async (req, res) => {
       WHERE id NOT IN (
         SELECT DISTINCT participant_id FROM Winner
       )
-      ORDER BY name
+      ORDER BY id
     `);
     const names = participants.map(p => p.name);
     res.json(names);

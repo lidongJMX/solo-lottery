@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { initDatabase } from './database/init.js';
 import participantRoutes from './routes/participants.js';
-import prizeRoutes from './routes/prizes.js';
+import awardRoutes from './routes/awards.js';
 import lotteryRoutes from './routes/lottery.js';
 
 const app = express();
@@ -19,7 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // 路由
 app.use('/api/participants', participantRoutes);
-app.use('/api/prizes', prizeRoutes);
+app.use('/api/awards', awardRoutes);
 app.use('/api/lottery', lotteryRoutes);
 
 // 健康检查
