@@ -132,6 +132,16 @@ export const lotteryAPI = {
     return api.get('/lottery/winners')
   },
   
+  // 获取特定奖项的中奖记录
+  getWinnersByAward(awardId) {
+    return api.get(`/lottery/winners/${awardId}`)
+  },
+  
+  // 删除中奖记录
+  deleteWinner(winnerId) {
+    return api.delete(`/lottery/winners/${winnerId}`)
+  },
+  
   // 获取抽奖统计
   getStatistics() {
     return api.get('/lottery/statistics')

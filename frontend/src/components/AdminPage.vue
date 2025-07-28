@@ -287,16 +287,23 @@
           </div>
           
           <div class="table-container">
-            <el-table :data="lotteryRecords" style="width: 100%" stripe>
-              <el-table-column prop="id" label="记录ID" width="100" />
+            <el-table :data="lotteryRecords" style="width: 100%" stripe v-loading="lotteryLoading">
+              <el-table-column prop="id" label="记录ID" width="80" />
               <el-table-column prop="winnerName" label="中奖者" width="120" />
-              <el-table-column prop="awardName" label="奖项" width="200" />
-              <el-table-column prop="awardLevel" label="奖项" width="100" />
-              <el-table-column prop="drawTime" label="抽奖时间" width="180" />
-              <el-table-column prop="operator" label="操作员" width="100" />
-              <el-table-column label="操作" width="100">
+              <el-table-column prop="department" label="部门" width="120" />
+              <el-table-column prop="award" label="奖项" width="120" />
+              <el-table-column prop="epoch" label="轮次" width="80" />
+              <el-table-column prop="awardLevel" label="等级" width="80">
                 <template #default="scope">
-                  <el-button size="small" type="danger" @click="deleteRecord(scope.row.id)">删除</el-button>
+                  <el-tag :type="getAwardLevelType(scope.row.awardLevel)" size="small">
+                    {{ scope.row.awardLevel }}等奖
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="drawTime" label="抽奖时间" width="180" />
+              <el-table-column label="操作" width="100" fixed="right">
+                <template #default="scope">
+                  <el-button size="small" type="danger" link @click="deleteRecord(scope.row.id)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -578,24 +585,31 @@ const fetchAwards = async () => {
 }
 
 // 抽奖记录
-const lotteryRecords = ref([
-  {
-    id: 1,
-    winnerName: '张三',
-    awardName: '小天鹅洗烘套装',
-    awardLevel: '一等奖',
-    drawTime: '2024-12-19 14:30:25',
-    operator: '管理员'
-  },
-  {
-    id: 2,
-    winnerName: '李四',
-    awardName: '戴森吸尘器',
-    awardLevel: '二等奖',
-    drawTime: '2024-12-19 14:32:15',
-    operator: '管理员'
+const lotteryRecords = ref([])
+const lotteryLoading = ref(false)
+
+// 获取抽奖记录
+const fetchLotteryRecords = async () => {
+  try {
+    lotteryLoading.value = true
+    const data = await lotteryAPI.getWinners()
+    // 转换数据格式以匹配表格显示
+    lotteryRecords.value = data.map(record => ({
+      id: record.id,
+      winnerName: record.name,
+      awardName: record.award_name,
+      awardLevel: record.award_level,
+      drawTime: new Date(record.draw_time).toLocaleString(),
+      department: record.department || '未知',
+      award: record.award
+    }))
+  } catch (error) {
+    console.error('获取抽奖记录失败:', error)
+    ElMessage.error('获取抽奖记录失败')
+  } finally {
+    lotteryLoading.value = false
   }
-])
+}
 
 // 系统设置
 const settings = ref({
@@ -703,15 +717,31 @@ const exportWinners = () => {
 
 // clearParticipants 方法已在上面重新实现
 
-const clearRecords = () => {
-  ElMessageBox.confirm('确认清空所有抽奖记录？', '警告', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    lotteryRecords.value = []
-    ElMessage.success('抽奖记录已清空')
-  })
+const clearRecords = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确认清空所有抽奖记录？此操作将删除所有中奖记录并重置奖项数量，不可恢复！', 
+      '警告', 
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: true
+      }
+    )
+    
+    await lotteryAPI.reset()
+    ElMessage.success('抽奖记录已清空，奖项数量已重置')
+    
+    // 重新获取数据
+    await fetchLotteryRecords()
+    await fetchStatistics()
+    await fetchAwards()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空抽奖记录失败:', error)
+    }
+  }
 }
 
 // 编辑参与者
@@ -995,15 +1025,26 @@ const deleteAward = (id) => {
   })
 }
 
-const deleteRecord = (id) => {
-  ElMessageBox.confirm('确认删除该记录？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    lotteryRecords.value = lotteryRecords.value.filter(r => r.id !== id)
+const deleteRecord = async (id) => {
+  try {
+    await ElMessageBox.confirm('确认删除该中奖记录？删除后将恢复对应奖项的数量。', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await lotteryAPI.deleteWinner(id)
     ElMessage.success('删除成功')
-  })
+    
+    // 重新获取数据
+    await fetchLotteryRecords()
+    await fetchStatistics()
+    await fetchAwards()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除中奖记录失败:', error)
+    }
+  }
 }
 
 const saveSettings = () => {
@@ -1021,12 +1062,28 @@ const resetSettings = () => {
   ElMessage.success('设置已重置')
 }
 
+// 获取奖项等级标签类型
+const getAwardLevelType = (level) => {
+  const levelNum = parseInt(level)
+  switch (levelNum) {
+    case 1:
+      return 'danger'  // 红色 - 一等奖
+    case 2:
+      return 'warning' // 橙色 - 二等奖
+    case 3:
+      return 'success' // 绿色 - 三等奖
+    default:
+      return 'info'    // 蓝色 - 其他奖项
+  }
+}
+
 // 生命周期
 onMounted(async () => {
   // 初始化数据
   console.log('管理员页面已加载')
   await fetchParticipants()
   await fetchAwards()
+  await fetchLotteryRecords()
   await fetchStatistics()
 })
 </script>
