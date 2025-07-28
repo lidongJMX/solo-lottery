@@ -337,14 +337,27 @@
     </div>
 
     <!-- 导入参与者对话框 -->
-    <el-dialog v-model="showImportDialog" title="导入参与者名单" width="500px">
+    <el-dialog v-model="showImportDialog" title="导入参与者名单" width="600px">
       <div class="import-section">
+        <div class="import-tips">
+          <h4>文件格式要求：</h4>
+          <ul>
+            <li>支持 Excel (.xlsx, .xls) 和 CSV 文件</li>
+            <li>必须包含 <strong>"name"</strong> 或 <strong>"姓名"</strong> 列</li>
+            <li>可选包含 <strong>"user_id"</strong>、<strong>"工号"</strong>、<strong>"员工号"</strong> 列</li>
+            <li>可选包含 <strong>"department"</strong> 或 <strong>"部门"</strong> 列</li>
+            <li>文件大小不超过 5MB</li>
+          </ul>
+        </div>
+        
         <el-upload
           class="upload-demo"
           drag
           :auto-upload="false"
           :on-change="handleFileChange"
+          :file-list="[]"
           accept=".xlsx,.xls,.csv"
+          :disabled="importLoading"
         >
           <el-icon class="el-icon--upload"><upload-filled /></el-icon>
           <div class="el-upload__text">
@@ -352,15 +365,22 @@
           </div>
           <template #tip>
             <div class="el-upload__tip">
-              支持 Excel (.xlsx, .xls) 和 CSV 文件
+              {{ selectedFile ? `已选择文件: ${selectedFile.name}` : '请选择要导入的文件' }}
             </div>
           </template>
         </el-upload>
       </div>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showImportDialog = false">取消</el-button>
-          <el-button type="primary" @click="importParticipants">确认导入</el-button>
+          <el-button @click="showImportDialog = false" :disabled="importLoading">取消</el-button>
+          <el-button 
+            type="primary" 
+            @click="importParticipants" 
+            :loading="importLoading"
+            :disabled="!selectedFile"
+          >
+            {{ importLoading ? '导入中...' : '确认导入' }}
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -619,14 +639,56 @@ const logout = () => {
   })
 }
 
+// 导入相关的响应式数据
+const selectedFile = ref(null)
+const importLoading = ref(false)
+
 const handleFileChange = (file) => {
   console.log('选择的文件:', file)
+  selectedFile.value = file.raw || file
 }
 
-const importParticipants = () => {
-  ElMessage.success('参与者名单导入成功！')
-  showImportDialog.value = false
-  // 这里添加实际的导入逻辑
+const importParticipants = async () => {
+  if (!selectedFile.value) {
+    ElMessage.error('请先选择要导入的文件')
+    return
+  }
+  
+  try {
+    importLoading.value = true
+    const result = await participantAPI.import(selectedFile.value)
+    
+    // 显示导入结果
+     const { total, success, errors, errorDetails } = result
+     let message = `导入完成！\n总计: ${total} 条\n成功: ${success} 条`
+     
+     if (errors > 0) {
+       message += `\n失败: ${errors} 条`
+       if (errorDetails && errorDetails.length > 0) {
+         message += `\n错误详情: ${errorDetails.slice(0, 3).join(', ')}`
+         if (errorDetails.length > 3) {
+           message += ` 等${errorDetails.length}个错误`
+         }
+       }
+     }
+    
+    if (success > 0) {
+      ElMessage.success(message)
+      // 刷新参与者列表和统计数据
+      await fetchParticipants()
+      await fetchStatistics()
+    } else {
+      ElMessage.warning(message)
+    }
+    
+    showImportDialog.value = false
+    selectedFile.value = null
+  } catch (error) {
+    console.error('导入失败:', error)
+    ElMessage.error('导入失败，请检查文件格式')
+  } finally {
+    importLoading.value = false
+  }
 }
 
 const exportParticipants = () => {
@@ -731,17 +793,47 @@ const clearParticipants = async () => {
       type: 'warning'
     })
     
-    // 批量删除所有参与者
-    const deletePromises = participants.value.map(p => participantAPI.delete(p.id))
-    await Promise.all(deletePromises)
+    loading.value = true
     
-    ElMessage.success('参与者名单已清空')
-    await fetchParticipants()
-    await fetchStatistics()
+    try {
+      // 尝试普通清空
+      const result = await participantAPI.clearAll(false)
+      ElMessage.success(`清空成功，共删除 ${result.deletedCount} 个参与者`)
+      await fetchParticipants()
+      await fetchStatistics()
+    } catch (error) {
+      // 如果存在已中奖参与者，询问是否强制清空
+      if (error.response?.data?.hasWinners) {
+        const winnersCount = error.response.data.winnersCount
+        await ElMessageBox.confirm(
+          `检测到 ${winnersCount} 个已中奖的参与者。\n强制清空将同时删除所有中奖记录，此操作不可恢复！\n\n确认要强制清空吗？`,
+          '存在已中奖参与者',
+          {
+            confirmButtonText: '强制清空',
+            cancelButtonText: '取消',
+            type: 'error',
+            dangerouslyUseHTMLString: true
+          }
+        )
+        
+        // 强制清空
+        const result = await participantAPI.clearAll(true)
+        ElMessage.success(
+          `强制清空成功！\n删除参与者: ${result.deletedCount} 个\n清除中奖记录: ${result.winnersCleared} 个`
+        )
+        await fetchParticipants()
+        await fetchStatistics()
+      } else {
+        throw error
+      }
+    }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('清空参与者名单失败:', error)
+      ElMessage.error('清空失败: ' + (error.response?.data?.error || error.message))
     }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -1164,6 +1256,48 @@ onMounted(async () => {
 /* 导入区域 */
 .import-section {
   padding: 20px 0;
+}
+
+.import-tips {
+  background-color: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.import-tips h4 {
+  margin: 0 0 12px 0;
+  color: #0369a1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.import-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #0c4a6e;
+}
+
+.import-tips li {
+  margin-bottom: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.import-tips strong {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.upload-demo {
+  margin-top: 16px;
+}
+
+.el-upload__tip {
+  color: #606266;
+  font-size: 12px;
+  margin-top: 8px;
 }
 
 /* 设置表单 */

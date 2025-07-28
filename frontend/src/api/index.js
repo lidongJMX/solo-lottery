@@ -66,6 +66,24 @@ export const participantAPI = {
   // 删除参与者
   delete(id) {
     return api.delete(`/participants/${id}`)
+  },
+  
+  // 批量导入参与者
+  import(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post('/participants/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+  
+  // 批量清空所有参与者
+  clearAll(force = false) {
+    return api.delete('/participants/clear-all', {
+      data: { force }
+    })
   }
 }
 
