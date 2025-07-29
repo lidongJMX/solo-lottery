@@ -555,10 +555,10 @@ const fetchStatistics = async () => {
       lotteryAPI.getWinners(),
       awardAPI.getAll()
     ])
-    
+    console.log('awardsData', awardsData)
     statistics.value = {
       totalParticipants: participantsData.length,
-      totalAwards: awardsData.reduce((sum, award) => sum + award.count, 0),
+      totalAwards: awardsData.length,
       totalWinners: winnersData.length
     }
   } catch (error) {

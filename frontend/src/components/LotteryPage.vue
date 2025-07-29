@@ -297,6 +297,9 @@ const currentWinners = ref([]);
 const rollingNames = ref([]);
 const rollingTimer = ref(null);
 const showWinnerDialog = ref(false);
+const isSlowingDown = ref(false);
+const slowDownStartTime = ref(0);
+const slowDownDuration = 2000; // 3秒减速时间
 
 // 背景图片
 const backgroundImage = new URL('../assets/background/c.png', import.meta.url).href;
@@ -409,6 +412,7 @@ const startDraw = () => {
   if (isDrawing.value || remainingCount.value === 0) return;
 
   isDrawing.value = true;
+  isSlowingDown.value = false;
   showWinnerNames.value = true;
   currentWinners.value = [];
 
@@ -424,7 +428,7 @@ const startDraw = () => {
 
 // 开始人名滚动
 const startRolling = () => {
-  rollingTimer.value = setInterval(() => {
+  const updateNames = () => {
     const availableParticipants = participants.value.filter(
       p => !winners.value.some(w => w.name === p.name)
     );
@@ -433,16 +437,51 @@ const startRolling = () => {
       const randomIndex = Math.floor(Math.random() * availableParticipants.length);
       rollingNames.value[i] = availableParticipants[randomIndex]?.name || '参与者';
     }
-  }, 500); // 每500ms更换一次人名
+  };
+
+  const roll = () => {
+    if (!isDrawing.value) return;
+    
+    updateNames();
+    
+    let interval = 100; // 初始间隔100ms，滚动很快
+    
+    if (isSlowingDown.value) {
+      // 计算减速进度 (0-1)
+      const elapsed = Date.now() - slowDownStartTime.value;
+      const progress = Math.min(elapsed / slowDownDuration, 1);
+      
+      // 使用缓动函数实现平滑减速
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      interval = 100 + (1500 * easeOut); // 从100ms逐渐增加到1600ms
+      
+      if (progress >= 1) {
+        // 减速完成，停止抽奖
+        finalizeDraw();
+        return;
+      }
+    }
+    
+    rollingTimer.value = setTimeout(roll, interval);
+  };
+  
+  roll();
 };
 
-// 停止抽奖
+// 开始减速停止抽奖
 const stopDraw = () => {
-  if (!isDrawing.value) return;
+  if (!isDrawing.value || isSlowingDown.value) return;
 
+  // 开始减速过程
+  isSlowingDown.value = true;
+  slowDownStartTime.value = Date.now();
+};
+
+// 最终确定中奖者
+const finalizeDraw = () => {
   // 清除定时器
   if (rollingTimer.value) {
-    clearInterval(rollingTimer.value);
+    clearTimeout(rollingTimer.value);
     rollingTimer.value = null;
   }
 
@@ -456,7 +495,9 @@ const stopDraw = () => {
   const latestWinners = winners.value.slice(-drawCount.value);
   currentWinners.value = latestWinners;
 
+  // 重置状态
   isDrawing.value = false;
+  isSlowingDown.value = false;
 
   // 显示中奖弹窗
   setTimeout(() => {
@@ -480,13 +521,14 @@ const closeWinnerDialog = () => {
     showWinnerNames.value = false;
     currentWinners.value = [];
     rollingNames.value = [];
+    isSlowingDown.value = false;
   }, 300);
 };
 
 // 组件卸载时清理
 onUnmounted(() => {
   if (rollingTimer.value) {
-    clearInterval(rollingTimer.value);
+    clearTimeout(rollingTimer.value);
   }
   document.removeEventListener('keydown', handleKeyPress);
 });
