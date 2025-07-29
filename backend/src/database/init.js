@@ -106,99 +106,121 @@ export async function initDatabase() {
     // 启用外键约束检查
     await dbRun('PRAGMA foreign_keys = true');
 
-    // 插入默认管理员数据
+    // 插入默认数据（仅在表为空时插入）
     const currentTime = new Date().toISOString();
-    const defaultAdmin = {
-      username: 'admin',
-      password: 'admin123', // 实际应用中应该加密存储
-      createdAt: currentTime,
-      updatedAt: currentTime
-    };
-
-    const existingAdmin = await dbGet('SELECT id FROM "Admin" WHERE username = ?', [defaultAdmin.username]);
-    if (!existingAdmin) {
+    
+    // 检查Admin表是否有数据
+    const existingAdminCount = await dbGet('SELECT COUNT(*) as count FROM "Admin"');
+    if (existingAdminCount.count === 0) {
+      const defaultAdmin = {
+        username: 'admin',
+        password: 'admin123', // 实际应用中应该加密存储
+        createdAt: currentTime,
+        updatedAt: currentTime
+      };
+      
       await dbRun(
         'INSERT INTO "Admin" ("username", "password", "createdAt", "updatedAt") VALUES (?, ?, ?, ?)',
         [defaultAdmin.username, defaultAdmin.password, defaultAdmin.createdAt, defaultAdmin.updatedAt]
       );
+      console.log('默认管理员数据插入完成');
+    } else {
+      console.log('Admin表中已有数据，跳过默认数据插入');
     }
 
-    // 插入默认轮次数据
-    const defaultEpoch = {
-      epoch: 1,
-      status: 1,
-      createdAt: currentTime,
-      updatedAt: currentTime
-    };
-
-    const existingEpoch = await dbGet('SELECT epoch_id FROM "Epoch" WHERE epoch = ?', [defaultEpoch.epoch]);
-    if (!existingEpoch) {
+    // 检查Epoch表是否有数据
+    const existingEpochCount = await dbGet('SELECT COUNT(*) as count FROM "Epoch"');
+    if (existingEpochCount.count === 0) {
+      const defaultEpoch = {
+        epoch: 1,
+        status: 1,
+        createdAt: currentTime,
+        updatedAt: currentTime
+      };
+      
       await dbRun(
         'INSERT INTO "Epoch" ("epoch", "status", "createdAt", "updatedAt") VALUES (?, ?, ?, ?)',
         [defaultEpoch.epoch, defaultEpoch.status, defaultEpoch.createdAt, defaultEpoch.updatedAt]
       );
+      console.log('默认轮次数据插入完成');
+    } else {
+      console.log('Epoch表中已有数据，跳过默认数据插入');
     }
 
-    // 插入默认奖项数据
-    const defaultAwards = [
-      {
-        name: '小天鹅 LittleSwan 洗烘套装',
-        description: '一等奖：高端洗烘套装，让生活更便捷',
-        count: 1,
-        remaining_count: 1,
-        level: 1,
-        draw_count: 1,
-        createdAt: currentTime,
-        updatedAt: currentTime
-      },
-      {
-        name: '戴森吸尘器',
-        description: '二等奖：高性能无线吸尘器，清洁好帮手',
-        count: 2,
-        remaining_count: 2,
-        level: 2,
-        draw_count: 1,
-        createdAt: currentTime,
-        updatedAt: currentTime
-      },
-      {
-        name: '华为智能手表',
-        description: '三等奖：智能运动手表，健康生活伴侣',
-        count: 5,
-        remaining_count: 5,
-        level: 3,
-        draw_count: 1,
-        createdAt: currentTime,
-        updatedAt: currentTime
-      }
-    ];
+    // 检查Award表是否有数据
+    const existingAwardCount = await dbGet('SELECT COUNT(*) as count FROM "Award"');
+    if (existingAwardCount.count === 0) {
+      const defaultAwards = [
+        {
+          name: '小天鹅 LittleSwan 洗烘套装',
+          description: '一等奖：高端洗烘套装，让生活更便捷',
+          count: 1,
+          remaining_count: 1,
+          level: 1,
+          draw_count: 1,
+          createdAt: currentTime,
+          updatedAt: currentTime
+        },
+        {
+          name: '戴森吸尘器',
+          description: '二等奖：高性能无线吸尘器，清洁好帮手',
+          count: 2,
+          remaining_count: 2,
+          level: 2,
+          draw_count: 1,
+          createdAt: currentTime,
+          updatedAt: currentTime
+        },
+        {
+          name: '华为智能手表',
+          description: '三等奖：智能运动手表，健康生活伴侣',
+          count: 5,
+          remaining_count: 5,
+          level: 3,
+          draw_count: 1,
+          createdAt: currentTime,
+          updatedAt: currentTime
+        }
+      ];
 
-    for (const award of defaultAwards) {
-      const existing = await dbGet('SELECT id FROM "Award" WHERE name = ? AND level = ?', [award.name, award.level]);
-      if (!existing) {
+      for (const award of defaultAwards) {
         await dbRun(
           'INSERT INTO "Award" ("name", "description", "count", "remaining_count", "level", "draw_count", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [award.name, award.description, award.count, award.remaining_count, award.level, award.draw_count, award.createdAt, award.updatedAt]
         );
       }
+      console.log('默认奖项数据插入完成');
+    } else {
+      console.log('Award表中已有数据，跳过默认数据插入');
     }
 
-    // 插入默认参与者数据到原表
-    const defaultParticipants = [
-      '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
-      '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
-      '徐子涵', '郭雨菲', '何俊杰', '马思琪', '朱天宇',
-      '杨雨欣', '林子轩', '范思涵', '金子轩', '唐嘉怡'
-    ];
+    // 检查Participant表是否有数据
+    const existingParticipantCount = await dbGet('SELECT COUNT(*) as count FROM "Participant"');
+    if (existingParticipantCount.count === 0) {
+      const defaultParticipants = [
+        '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
+        '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
+        '徐子涵', '郭雨菲', '何俊杰', '马思琪', '朱天宇',
+        '杨雨欣', '林子轩', '范思涵', '金子轩', '唐嘉怡'
+      ];
 
-    for (const name of defaultParticipants) {
-      const existing = await dbGet('SELECT id FROM "Participant" WHERE name = ?', [name]);
-      if (!existing) {
+      for (const name of defaultParticipants) {
         await dbRun(
           'INSERT INTO "Participant" ("name", "user_id", "department", "weight", "has_won", "win_count", "high_award_level", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [name, null, '技术部', 1.0, 0, 0, 100, currentTime, currentTime]
         );
       }
+      console.log('默认参与者数据插入完成');
+    } else {
+      console.log('Participant表中已有数据，跳过默认数据插入');
+    }
+    
+    // 检查Winner表是否有数据（通常为空，但为了完整性也检查）
+    const existingWinnerCount = await dbGet('SELECT COUNT(*) as count FROM "Winner"');
+    if (existingWinnerCount.count === 0) {
+      console.log('Winner表为空，无需插入默认数据');
+    } else {
+      console.log('Winner表中已有数据');
     }
 
 

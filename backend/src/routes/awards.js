@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 router.get('/config', async (req, res) => {
   try {
     const awards = await dbAll(`
-      SELECT id, level, name, description, count as total_count, remaining_count 
+      SELECT id, name, description, count as total_count, remaining_count, level, draw_count 
       FROM Award 
       ORDER BY level
     `);

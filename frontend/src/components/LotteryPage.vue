@@ -22,7 +22,7 @@
             <div
               class="w-[300px] h-[300px] bg-gradient-to-br from-red-500 via-red-600 to-red-700 border-2 border-yellow-400 shadow-xl rounded-lg p-4 mb-4 backdrop-blur-sm transition-all duration-1000 transform-gpu"
               :class="{ 'scale-0 opacity-0': showWinnerNames }">
-              <img :src="currentAward.image" :alt="currentAward.name"
+              <img :src="currentAward.image" :alt="currentAward.description"
                 class="w-full h-full object-contain transition-all duration-1000 transform-gpu"
                 :class="{ 'scale-0 opacity-0': showWinnerNames }">
             </div>
@@ -31,9 +31,9 @@
             <div class="items-center transition-all duration-1000 transform-gpu"
               :class="{ 'scale-0 opacity-0': showWinnerNames }">
               <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center transition-all duration-1000 transform-gpu"
-                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.level }}</h2>
+                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.name }}</h2>
               <p class="text-white text-base mb-4 text-center transition-all duration-1000 transform-gpu"
-                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.name }}</p>
+                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.description }}</p>
             </div>
 
             <!-- items-name: 抽奖时显示的参与者姓名 -->
@@ -74,8 +74,13 @@
             class="mt-4 flex items-center justify-center gap-4 bg-gradient-to-r from-red-700/20 to-yellow-600/20 border border-yellow-400/30 p-4 rounded-lg max-w-4xl mx-auto backdrop-blur-sm">
             <!-- 数量控制 -->
             <div class="flex items-center gap-2">
-              <span class="text-yellow-300 font-medium"></span>
-              <el-input-number v-model="drawCount" :min="1" :max="10" class="!rounded-button custom-input-number" />
+              <el-input-number 
+                v-model="drawCount" 
+                :min="1" 
+                :max="currentAward.count || 10" 
+                class="!rounded-button custom-input-number"
+                @change="updateDrawCount" 
+              />
             </div>
             <!-- 奖项选择 -->
             <div class="flex items-center gap-2">
@@ -83,7 +88,7 @@
                 class="!rounded-button !bg-yellow-500/20 !border-yellow-400 !text-yellow-300 hover:!bg-yellow-500/30 hover:!text-yellow-200"
                 :disabled="currentIndex === 0" @click="selectAward(currentIndex - 1)">
               </el-button>
-              <span class="text-yellow-300 text-lg px-3 font-semibold">{{ currentAward.level }}</span>
+              <span class="text-yellow-300 text-lg px-3 font-semibold">{{ currentAward.name }}</span>
               <el-button :icon="ArrowRight" type="default"
                 class="!rounded-button !bg-yellow-500/20 !border-yellow-400 !text-yellow-300 hover:!bg-yellow-500/30 hover:!text-yellow-200"
                 :disabled="currentIndex === awards.length - 1" @click="selectAward(currentIndex + 1)">
@@ -150,7 +155,7 @@
             🎉 恭喜中奖 🎉
           </h1>
           <div class="text-2xl text-yellow-200 font-semibold">
-            {{ currentAward.level }} - {{ currentAward.name }}
+            {{ currentAward.name }}
           </div>
         </div>
 
@@ -181,8 +186,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { awardAPI, participantAPI } from '../api/index.js';
 
 // 可编辑组织名称
 const organizationName = ref('山西省计算机软件学会');
@@ -203,31 +210,87 @@ const stopEdit = () => {
   isEditing.value = false;
 };
 
-const awards = ref([
-  {
-    level: '一等奖',
-    name: '小天鹅 LittleSwan 洗烘套装',
-    // image: 'https://ai-public.mastergo.com/ai/img_res/304a8126d488fa893ca027a2c8de9704.jpg'
-    image: new URL('../assets/award/一等奖.png', import.meta.url).href
-  },
-  {
-    level: '二等奖',
-    name: '戴森吸尘器',
-    image: 'https://ai-public.mastergo.com/ai/img_res/52b3e08599c214acc6802d5f6fbb8503.jpg'
-  },
-  {
-    level: '三等奖',
-    name: '华为智能手表',
-    image: 'https://ai-public.mastergo.com/ai/img_res/37bc491a791bc693235bc252a0725d3f.jpg'
+// 奖项数据从数据库获取
+const awards = ref([]);
+const awardsLoading = ref(false);
+
+// 获取奖项数据
+const fetchAwards = async () => {
+  try {
+    awardsLoading.value = true;
+    const data = await awardAPI.getConfig();
+    // 转换数据格式并生成图片路径
+    awards.value = data.map(award => ({
+      id: award.id,
+      level: award.level,
+      name: award.name,
+      description: award.description,
+      count: award.total_count,
+      remaining_count: award.remaining_count,
+      draw_count: award.draw_count || 1,
+      image: new URL(`../assets/award/${award.name}.png`, import.meta.url).href
+    }));
+
+    console.log('awards', awards.value);
+    // 如果有奖项数据，设置当前奖项
+    if (awards.value.length > 0) {
+      currentAward.value = awards.value[0];
+      // 同步初始化抽取数量
+      drawCount.value = currentAward.value?.draw_count || 1;
+    }
+  } catch (error) {
+    console.error('获取奖项数据失败:', error);
+    // 如果获取失败，使用默认数据
+    awards.value = [
+      {
+        id: 1,
+        level: 1,
+        name: '小天鹅 LittleSwan 洗烘套装',
+        description: '高端洗烘套装',
+        count: 1,
+        remaining_count: 1,
+        draw_count: 1,
+        image: new URL('../assets/award/一等奖.png', import.meta.url).href
+      },
+      {
+        id: 2,
+        level: 2,
+        name: '戴森吸尘器',
+        description: '无线吸尘器',
+        count: 2,
+        remaining_count: 2,
+        draw_count: 1,
+        image: new URL('../assets/award/二等奖.png', import.meta.url).href
+      },
+      {
+        id: 3,
+        level: 3,
+        name: '华为智能手表',
+        description: '智能穿戴设备',
+        count: 3,
+        remaining_count: 3,
+        draw_count: 1,
+        image: new URL('../assets/award/三等奖.png', import.meta.url).href
+      }
+    ];
+    currentAward.value = awards.value[0];
+    // 同步初始化抽取数量
+    drawCount.value = currentAward.value?.draw_count || 1;
+  } finally {
+    awardsLoading.value = false;
   }
-]);
+};
 
 const currentIndex = ref(0);
-const currentAward = ref(awards.value[0]);
+const currentAward = ref({});
 const dialogVisible = ref(false);
 const isDrawing = ref(false);
+// 抽取数量使用ref，与currentAward.draw_count同步
 const drawCount = ref(1);
-const remainingCount = ref(10);
+// 剩余数量基于当前奖项的remaining_count
+const remainingCount = computed(() => {
+  return currentAward.value?.remaining_count || 0;
+});
 const showWinnerNames = ref(false);
 const currentWinners = ref([]);
 const rollingNames = ref([]);
@@ -237,13 +300,30 @@ const winnerDialogVisible = ref(false);
 // 背景图片
 const backgroundImage = new URL('../assets/background/c.png', import.meta.url).href;
 
-// 模拟参与者数据
-const participants = ref([
-  '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
-  '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
-  '徐子涵', '郭雨菲', '何俊杰', '马思琪', '朱天宇',
-  '杨雨欣', '林子轩', '范思涵', '金子轩', '唐嘉怡'
-]);
+// 参与者数据从API获取
+const participants = ref([]);
+const participantsLoading = ref(false);
+
+// 获取参与者姓名列表
+const fetchParticipants = async () => {
+  try {
+    participantsLoading.value = true;
+    const names = await participantAPI.getNames();
+    participants.value = names;
+  } catch (error) {
+    console.error('获取参与者列表失败:', error);
+    ElMessage.error('获取参与者列表失败');
+    // 如果API失败，使用备用数据
+    participants.value = [
+      '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
+      '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
+      '徐子涵', '郭雨菲', '何俊杰', '马思琪', '朱天宇',
+      '杨雨欣', '林子轩', '范思涵', '金子轩', '唐嘉怡'
+    ];
+  } finally {
+    participantsLoading.value = false;
+  }
+};
 
 const winners = ref([]);
 
@@ -261,17 +341,60 @@ const drawWinners = () => {
     const winner = availableParticipants.splice(randomIndex, 1)[0];
     drawnWinners.push({
       name: winner,
-      award: `${currentAward.value.level} - ${currentAward.value.name}`
+      award: `${currentAward.value.level}等奖 - ${currentAward.value.name}`
     });
   }
 
   winners.value = [...winners.value, ...drawnWinners];
-  remainingCount.value -= count;
+  // 注意：remainingCount现在是computed属性，会自动从数据库更新
+  // 实际的剩余数量更新应该通过后端API处理
 };
 
 const selectAward = (index) => {
   currentIndex.value = index;
   currentAward.value = awards.value[index];
+  // 同步更新抽取数量
+  drawCount.value = currentAward.value?.draw_count || 1;
+};
+
+// 更新抽取数量
+const updateDrawCount = async (newValue) => {
+  if (!currentAward.value || !newValue) return;
+  
+  try {
+    // 验证数量范围
+    if (newValue < 1 || newValue > currentAward.value.count) {
+      ElMessage.error(`抽取数量必须在1到${currentAward.value.count}之间`);
+      return;
+    }
+    console.log('currentAward', currentAward);
+    // 调用后端API更新奖项的draw_count
+    const updateData = {
+      level: currentAward.value.level,
+      name: currentAward.value.name,
+      description: currentAward.value.description,
+      count: currentAward.value.count,
+      draw_count: newValue
+    };
+    
+    await awardAPI.update(currentAward.value.id, updateData);
+    
+    // 更新本地数据
+    currentAward.value.draw_count = newValue;
+    
+    // 同步更新awards数组中的数据
+    const awardIndex = awards.value.findIndex(award => award.id === currentAward.value.id);
+    if (awardIndex !== -1) {
+      awards.value[awardIndex].draw_count = newValue;
+    }
+    
+    console.log(`奖项 ${currentAward.value.name} 的抽取数量已更新为 ${newValue}`);
+  } catch (error) {
+    console.error('更新抽取数量失败:', error);
+    ElMessage.error('更新抽取数量失败');
+    // 重新获取数据以恢复正确状态
+    await fetchAwards();
+  }
 };
 
 const startDraw = () => {
@@ -371,13 +494,20 @@ const showWinners = () => {
 const nextRound = () => {
   // 重置抽奖状态
   isDrawing.value = false;
-  remainingCount.value = 10;
+  // 重新获取奖项数据以更新剩余数量
+  fetchAwards();
   // 可以选择是否清空中奖名单
   // winners.value = [];
 
   // 提示用户开始新一轮
   console.log('开始下一轮抽奖');
 };
+
+// 组件挂载时获取奖项数据
+onMounted(async () => {
+  await fetchAwards();
+  await fetchParticipants();
+});
 </script>
 
 <style scoped>
