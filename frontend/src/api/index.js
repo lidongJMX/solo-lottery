@@ -150,7 +150,12 @@ export const lotteryAPI = {
   // 重置抽奖
   reset() {
     return api.post('/lottery/reset')
+  },
+  // 开始新轮次
+  nextRound() {
+    return api.post('/lottery/next-round')
   }
+  //
 }
 
 export default api

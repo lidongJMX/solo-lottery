@@ -133,7 +133,7 @@
     </el-dialog>
 
     <!-- 醒目的中奖弹窗 -->
-    <div v-if="winnerDialogVisible"
+    <div v-if="showWinnerDialog"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       @click="closeWinnerDialog">
       <div
@@ -168,8 +168,9 @@
             'grid-cols-4': currentWinners.length > 6
           }">
             <div v-for="(winner, index) in currentWinners" :key="index"
-              class="bg-yellow-400 text-red-800 px-8 py-4 rounded-2xl text-3xl font-bold shadow-lg">
-              {{ winner.name }}
+              class="bg-yellow-400 text-red-800 px-8 py-4 rounded-2xl shadow-lg text-center">
+              <div class="text-3xl font-bold mb-2">{{ winner.name }}</div>
+              <div class="text-lg text-red-600">{{ winner.department || '未知部门' }}</div>
             </div>
           </div>
         </div>
@@ -189,7 +190,7 @@
 import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { awardAPI, participantAPI } from '../api/index.js';
+import { awardAPI, lotteryAPI, participantAPI } from '../api/index.js';
 
 // 可编辑组织名称
 const organizationName = ref('山西省计算机软件学会');
@@ -295,7 +296,7 @@ const showWinnerNames = ref(false);
 const currentWinners = ref([]);
 const rollingNames = ref([]);
 const rollingTimer = ref(null);
-const winnerDialogVisible = ref(false);
+const showWinnerDialog = ref(false);
 
 // 背景图片
 const backgroundImage = new URL('../assets/background/c.png', import.meta.url).href;
@@ -304,21 +305,27 @@ const backgroundImage = new URL('../assets/background/c.png', import.meta.url).h
 const participants = ref([]);
 const participantsLoading = ref(false);
 
-// 获取参与者姓名列表
+// 获取参与者完整信息列表
 const fetchParticipants = async () => {
   try {
     participantsLoading.value = true;
-    const names = await participantAPI.getNames();
-    participants.value = names;
+    const participantData = await participantAPI.getAvailable();
+    participants.value = participantData;
   } catch (error) {
     console.error('获取参与者列表失败:', error);
     ElMessage.error('获取参与者列表失败');
     // 如果API失败，使用备用数据
     participants.value = [
-      '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
-      '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
-      '徐子涵', '郭雨菲', '何俊杰', '马思琪', '朱天宇',
-      '杨雨欣', '林子轩', '范思涵', '金子轩', '唐嘉怡'
+      { name: '张雨晨', department: '技术部' },
+      { name: '李思成', department: '技术部' },
+      { name: '王梓萱', department: '技术部' },
+      { name: '陈宇航', department: '技术部' },
+      { name: '刘欣怡', department: '技术部' },
+      { name: '黄子豪', department: '技术部' },
+      { name: '周美玲', department: '技术部' },
+      { name: '吴承翰', department: '技术部' },
+      { name: '赵雅婷', department: '技术部' },
+      { name: '孙浩然', department: '技术部' }
     ];
   } finally {
     participantsLoading.value = false;
@@ -330,7 +337,7 @@ const winners = ref([]);
 // 随机抽取指定数量的中奖者
 const drawWinners = () => {
   const availableParticipants = participants.value.filter(
-    p => !winners.value.some(w => w.name === p)
+    p => !winners.value.some(w => w.name === p.name)
   );
 
   const count = Math.min(drawCount.value, availableParticipants.length, remainingCount.value);
@@ -340,7 +347,8 @@ const drawWinners = () => {
     const randomIndex = Math.floor(Math.random() * availableParticipants.length);
     const winner = availableParticipants.splice(randomIndex, 1)[0];
     drawnWinners.push({
-      name: winner,
+      name: winner.name,
+      department: winner.department,
       award: `${currentAward.value.level}等奖 - ${currentAward.value.name}`
     });
   }
@@ -418,14 +426,14 @@ const startDraw = () => {
 const startRolling = () => {
   rollingTimer.value = setInterval(() => {
     const availableParticipants = participants.value.filter(
-      p => !winners.value.some(w => w.name === p)
+      p => !winners.value.some(w => w.name === p.name)
     );
 
     for (let i = 0; i < drawCount.value; i++) {
       const randomIndex = Math.floor(Math.random() * availableParticipants.length);
-      rollingNames.value[i] = availableParticipants[randomIndex] || '参与者';
+      rollingNames.value[i] = availableParticipants[randomIndex]?.name || '参与者';
     }
-  }, 100); // 每100ms更换一次人名
+  }, 500); // 每500ms更换一次人名
 };
 
 // 停止抽奖
@@ -452,7 +460,7 @@ const stopDraw = () => {
 
   // 显示中奖弹窗
   setTimeout(() => {
-    winnerDialogVisible.value = true;
+    showWinnerDialog.value = true;
   }, 500);
 };
 
@@ -466,7 +474,7 @@ const handleKeyPress = (event) => {
 
 // 关闭中奖弹窗
 const closeWinnerDialog = () => {
-  winnerDialogVisible.value = false;
+  showWinnerDialog.value = false;
   // 重置动画状态
   setTimeout(() => {
     showWinnerNames.value = false;
@@ -487,20 +495,36 @@ const showWinners = () => {
   // 设置当前中奖者为所有中奖者
   currentWinners.value = winners.value;
   // 显示醒目的中奖弹窗
-  winnerDialogVisible.value = true;
+  showWinnerDialog.value = true;
 };
 
 // 下一轮抽奖
-const nextRound = () => {
-  // 重置抽奖状态
-  isDrawing.value = false;
-  // 重新获取奖项数据以更新剩余数量
-  fetchAwards();
-  // 可以选择是否清空中奖名单
-  // winners.value = [];
-
-  // 提示用户开始新一轮
-  console.log('开始下一轮抽奖');
+const nextRound = async () => {
+  try {
+    const data = await lotteryAPI.nextRound();
+    
+    if (data.success) {
+      // 显示成功消息
+      ElMessage.success(data.message);
+      
+      // 重新获取奖项数据和参与者数据
+      await fetchAwards();
+      await fetchParticipants();
+      
+      // 重置抽奖状态
+      currentIndex.value = 0;
+      currentAward.value = null;
+      drawCount.value = 1;
+      winners.value = [];
+      isDrawing.value = false;
+      showWinnerDialog.value = false;
+    } else {
+      ElMessage.error(data.error || '开始新轮次失败');
+    }
+  } catch (error) {
+    console.error('开始新轮次失败:', error);
+    ElMessage.error('开始新轮次失败，请检查网络连接');
+  }
 };
 
 // 组件挂载时获取奖项数据

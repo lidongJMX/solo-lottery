@@ -188,11 +188,37 @@ router.get('/status', async (req, res) => {
 // 开始新一轮抽奖
 router.post('/next-round', async (req, res) => {
   try {
-    // 这里可以添加轮次管理逻辑
-    // 目前只是返回成功状态
+    // 获取当前轮次信息
+    const currentEpoch = await dbGet('SELECT * FROM Epoch ORDER BY epoch_id DESC LIMIT 1');
+    
+    if (!currentEpoch) {
+      return res.status(400).json({ error: '轮次信息不存在' });
+    }
+    
+    // 检查轮次状态，状态为1表示开启了轮次抽奖
+    if (currentEpoch.status !== 1) {
+      return res.status(400).json({ 
+        error: '当前轮次状态不允许进入下一轮',
+        currentStatus: currentEpoch.status
+      });
+    }
+    
+    // 轮次加1
+    const newEpoch = currentEpoch.epoch + 1;
+    const currentTime = new Date().toISOString();
+    
+    // 更新当前轮次状态为结束（状态设为0）
+    await dbRun(
+      'UPDATE Epoch SET epoch = ?, status = 1, updatedAt = ? WHERE epoch_id = ?',
+      [newEpoch, currentTime, currentEpoch.epoch_id]
+    );
+    console.log('newEpoch', newEpoch);
     res.json({ 
       success: true, 
-      message: '新一轮抽奖已开始' 
+      message: `新一轮抽奖已开始，当前轮次：${newEpoch}`,
+      previousEpoch: currentEpoch.epoch,
+      currentEpoch: newEpoch,
+      epochId: currentEpoch.epoch_id
     });
   } catch (error) {
     console.error('开始新轮次失败:', error);
