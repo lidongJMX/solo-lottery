@@ -15,6 +15,8 @@
     <div class="w-[1440px] max-w-full relative">
       <!-- 主要内容 -->
       <div class="max-w-[1200px] mx-auto mt-0 rounded-lg p-8">
+
+        
         <!-- 奖项展示 -->
         <div class="flex flex-col items-center">
           <!-- 奖项信息容器 -->
@@ -104,6 +106,11 @@
                 @click="startDraw">
                 {{ isDrawing ? '抽奖中...' : '开始抽奖' }}
               </el-button>
+              <!-- <el-button type="danger" :disabled="!isDrawing || isSlowingDown"
+                class="!rounded-button whitespace-nowrap !bg-gradient-to-r !from-orange-500 !to-orange-600 !border-orange-500 hover:!from-orange-600 hover:!to-orange-700 !text-white !font-semibold"
+                @click="stopDraw">
+                停止抽奖
+              </el-button> -->
               <el-button type="warning"
                 class="!rounded-button whitespace-nowrap !bg-gradient-to-r !from-yellow-500 !to-yellow-600 !border-yellow-500 hover:!from-yellow-600 hover:!to-yellow-700 !text-red-800 !font-semibold"
                 @click="showWinners">
@@ -115,11 +122,12 @@
       </div>
 
       <!-- 下一轮按钮 -->
-      <div class="absolute bottom-4 right-4">
-        <el-button type="primary" size="large"
+      <div class="fixed bottom-4 right-4">
+        <el-button type="primary" size="medium"
           class="!rounded-button !bg-gradient-to-r !from-yellow-500 !to-yellow-600 !border-yellow-500 hover:!from-yellow-600 hover:!to-yellow-700 !text-red-800 !font-bold !shadow-lg"
           @click="nextRound">
           下一轮
+          <span style="font-size: 12px;">(当前第{{ currentEpoch}}轮)</span>
         </el-button>
       </div>
     </div>
@@ -214,6 +222,10 @@ const stopEdit = () => {
 // 奖项数据从数据库获取
 const awards = ref([]);
 const awardsLoading = ref(false);
+
+// 轮次信息
+const currentEpoch = ref(0);
+const epochStatus = ref(1);
 
 // 获取奖项数据
 const fetchAwards = async () => {
@@ -335,30 +347,57 @@ const fetchParticipants = async () => {
   }
 };
 
+// 获取抽奖状态和轮次信息
+const fetchLotteryStatus = async () => {
+  try {
+    const statusData = await lotteryAPI.getStatus();
+    currentEpoch.value = statusData.currentEpoch || 0;
+    epochStatus.value = statusData.epochStatus || 1;
+  } catch (error) {
+    console.error('获取抽奖状态失败:', error);
+    // 使用默认值
+    currentEpoch.value = 0;
+    epochStatus.value = 1;
+  }
+};
+
 const winners = ref([]);
 
-// 随机抽取指定数量的中奖者
-const drawWinners = () => {
-  const availableParticipants = participants.value.filter(
-    p => !winners.value.some(w => w.name === p.name)
-  );
-
-  const count = Math.min(drawCount.value, availableParticipants.length, remainingCount.value);
-  const drawnWinners = [];
-
-  for (let i = 0; i < count; i++) {
-    const randomIndex = Math.floor(Math.random() * availableParticipants.length);
-    const winner = availableParticipants.splice(randomIndex, 1)[0];
-    drawnWinners.push({
-      name: winner.name,
-      department: winner.department,
-      award: `${currentAward.value.level}等奖 - ${currentAward.value.name}`
-    });
+// 调用后端API执行抽奖
+const drawWinners = async () => {
+  try {
+    const drawData = {
+      awardId: currentAward.value.id,
+      count: drawCount.value
+    };
+    
+    const result = await lotteryAPI.draw(drawData);
+    
+    if (result.success) {
+      // 更新中奖者列表
+      const newWinners = result.winners.map(winner => ({
+        id: winner.id,
+        name: winner.participant.name,
+        department: winner.participant.department,
+        award: winner.award,
+        draw_time: winner.draw_time
+      }));
+      
+      winners.value = [...winners.value, ...newWinners];
+      
+      // 重新获取奖项数据以更新剩余数量
+      await fetchAwards();
+      
+      return newWinners;
+    } else {
+      ElMessage.error(result.error || '抽奖失败');
+      return [];
+    }
+  } catch (error) {
+    console.error('抽奖失败:', error);
+    ElMessage.error('抽奖失败，请检查网络连接');
+    return [];
   }
-
-  winners.value = [...winners.value, ...drawnWinners];
-  // 注意：remainingCount现在是computed属性，会自动从数据库更新
-  // 实际的剩余数量更新应该通过后端API处理
 };
 
 const selectAward = (index) => {
@@ -478,7 +517,7 @@ const stopDraw = () => {
 };
 
 // 最终确定中奖者
-const finalizeDraw = () => {
+const finalizeDraw = async () => {
   // 清除定时器
   if (rollingTimer.value) {
     clearTimeout(rollingTimer.value);
@@ -488,21 +527,29 @@ const finalizeDraw = () => {
   // 移除键盘监听
   document.removeEventListener('keydown', handleKeyPress);
 
-  // 确定最终中奖者
-  drawWinners();
-
-  // 更新当前中奖者列表
-  const latestWinners = winners.value.slice(-drawCount.value);
-  currentWinners.value = latestWinners;
-
-  // 重置状态
-  isDrawing.value = false;
-  isSlowingDown.value = false;
-
-  // 显示中奖弹窗
-  setTimeout(() => {
-    showWinnerDialog.value = true;
-  }, 500);
+  try {
+    // 确定最终中奖者
+    const newWinners = await drawWinners();
+    
+    if (newWinners && newWinners.length > 0) {
+      // 更新当前中奖者列表
+      currentWinners.value = newWinners;
+      
+      // 显示中奖弹窗
+      setTimeout(() => {
+        showWinnerDialog.value = true;
+      }, 500);
+    } else {
+      ElMessage.error('抽奖失败，请重试');
+    }
+  } catch (error) {
+    console.error('抽奖失败:', error);
+    ElMessage.error('抽奖失败，请重试');
+  } finally {
+    // 重置状态
+    isDrawing.value = false;
+    isSlowingDown.value = false;
+  }
 };
 
 // 键盘事件处理
@@ -516,7 +563,7 @@ const handleKeyPress = (event) => {
 // 关闭中奖弹窗
 const closeWinnerDialog = () => {
   showWinnerDialog.value = false;
-  // 重置动画状态
+  // 重置动画状态，但保持当前奖项不变
   setTimeout(() => {
     showWinnerNames.value = false;
     currentWinners.value = [];
@@ -533,11 +580,43 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyPress);
 });
 
-const showWinners = () => {
-  // 设置当前中奖者为所有中奖者
-  currentWinners.value = winners.value;
-  // 显示醒目的中奖弹窗
-  showWinnerDialog.value = true;
+const showWinners = async () => {
+  if (!currentAward.value) {
+    ElMessage.warning('请先选择奖项');
+    return;
+  }
+  
+  try {
+    // 获取当前轮次当前奖项的中奖者
+    const winnersData = await lotteryAPI.getWinnersByAward(currentAward.value.id);
+    
+    if (winnersData && winnersData.length > 0) {
+      // 筛选当前轮次的中奖者
+      const currentRoundWinners = winnersData.filter(winner => winner.epoch === currentEpoch.value);
+      
+      if (currentRoundWinners.length > 0) {
+        // 转换数据格式
+        currentWinners.value = currentRoundWinners.map(winner => ({
+          id: winner.id,
+          name: winner.name,
+          department: winner.department || '未知部门',
+          award: winner.award,
+          draw_time: winner.draw_time,
+          epoch: winner.epoch
+        }));
+        
+        // 显示中奖弹窗
+        showWinnerDialog.value = true;
+      } else {
+        ElMessage.info(`第${currentEpoch.value}轮当前奖项暂无中奖者`);
+      }
+    } else {
+      ElMessage.info('当前奖项暂无中奖者');
+    }
+  } catch (error) {
+    console.error('获取中奖者信息失败:', error);
+    ElMessage.error('获取中奖者信息失败');
+  }
 };
 
 // 下一轮抽奖
@@ -549,16 +628,29 @@ const nextRound = async () => {
       // 显示成功消息
       ElMessage.success(data.message);
       
+      // 更新轮次信息
+      currentEpoch.value = data.currentEpoch;
+      
       // 重新获取奖项数据和参与者数据
       await fetchAwards();
       await fetchParticipants();
+      await fetchLotteryStatus();
       
-      // 重置抽奖状态
-      currentIndex.value = 0;
-      currentAward.value = null;
-      drawCount.value = 1;
+      // 重置抽奖状态，但保持当前选中的奖项
+      if (awards.value.length > 0) {
+        // 如果当前奖项索引超出范围，则重置为0
+        if (currentIndex.value >= awards.value.length) {
+          currentIndex.value = 0;
+        }
+        currentAward.value = awards.value[currentIndex.value] || awards.value[0];
+        drawCount.value = currentAward.value?.draw_count || 1;
+      }
       winners.value = [];
+      currentWinners.value = [];
       isDrawing.value = false;
+      isSlowingDown.value = false;
+      showWinnerNames.value = false;
+      rollingNames.value = [];
       showWinnerDialog.value = false;
     } else {
       ElMessage.error(data.error || '开始新轮次失败');
@@ -573,6 +665,7 @@ const nextRound = async () => {
 onMounted(async () => {
   await fetchAwards();
   await fetchParticipants();
+  await fetchLotteryStatus();
 });
 </script>
 

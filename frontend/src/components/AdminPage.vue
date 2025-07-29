@@ -287,26 +287,47 @@
           </div>
           
           <div class="table-container">
-            <el-table :data="lotteryRecords" style="width: 100%" stripe v-loading="lotteryLoading">
-              <el-table-column prop="id" label="记录ID" width="80" />
-              <el-table-column prop="winnerName" label="中奖者" width="120" />
-              <el-table-column prop="department" label="部门" width="120" />
-              <el-table-column prop="award" label="奖项" width="120" />
-              <el-table-column prop="epoch" label="轮次" width="80" />
-              <el-table-column prop="awardLevel" label="等级" width="80">
+            <el-table 
+              :data="paginatedLotteryRecords" 
+              style="width: 100%" 
+              stripe 
+              v-loading="lotteryLoading"
+              element-loading-text="加载抽奖记录中..."
+              @sort-change="handleLotterySortChange"
+              :default-sort="{ prop: 'drawTime', order: 'descending' }"
+            >
+              <el-table-column prop="id" label="记录ID" width="80" sortable />
+              <el-table-column prop="winnerName" label="中奖者" width="120" sortable />
+              <el-table-column prop="department" label="部门" width="120" sortable />
+              <el-table-column prop="awardName" label="奖项" width="120" sortable />
+              <el-table-column prop="epoch" label="轮次" width="80" sortable />
+              <el-table-column prop="awardLevel" label="等级" width="80" sortable>
                 <template #default="scope">
                   <el-tag :type="getAwardLevelType(scope.row.awardLevel)" size="small">
                     {{ scope.row.awardLevel }}等奖
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="drawTime" label="抽奖时间" width="180" />
+              <el-table-column prop="drawTime" label="抽奖时间" width="180" sortable />
               <el-table-column label="操作" width="100" fixed="right">
                 <template #default="scope">
                   <el-button size="small" type="danger" link @click="deleteRecord(scope.row.id)">删除</el-button>
                 </template>
               </el-table-column>
             </el-table>
+            
+            <!-- 分页组件 -->
+            <div class="pagination-container">
+              <el-pagination
+                v-model:current-page="lotteryCurrentPage"
+                v-model:page-size="lotteryPageSize"
+                :page-sizes="[10, 20, 50, 100]"
+                :total="lotteryRecords.length"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="handleLotterySizeChange"
+                @current-change="handleLotteryCurrentChange"
+              />
+            </div>
           </div>
         </div>
 
@@ -466,6 +487,54 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 导出选项对话框 -->
+    <el-dialog v-model="showExportDialog" :title="exportType === 'participants' ? '导出参与者名单' : '导出中奖记录'" width="400px">
+      <el-form label-width="100px">
+        <el-form-item label="导出格式">
+          <el-radio-group v-model="exportFormat">
+            <el-radio label="xlsx">
+              <el-icon><Document /></el-icon>
+              Excel格式 (.xlsx)
+            </el-radio>
+            <el-radio label="csv">
+              <el-icon><Document /></el-icon>
+              CSV格式 (.csv)
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        
+        <el-form-item label="导出说明">
+          <div class="export-info">
+            <p v-if="exportType === 'participants'">
+              <el-icon><InfoFilled /></el-icon>
+              将导出所有参与者的详细信息，包括姓名、部门、联系方式、中奖状态等。
+            </p>
+            <p v-else>
+              <el-icon><InfoFilled /></el-icon>
+              将导出所有中奖记录，包括中奖者、奖项、抽奖时间等信息。
+            </p>
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="文件预览">
+          <div class="file-preview">
+            <el-icon><Folder /></el-icon>
+            <span>{{ exportType === 'participants' ? '参与者名单' : '中奖名单' }}_{{ new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') }}.{{ exportFormat }}</span>
+          </div>
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer" style="text-align: right;">
+          <el-button @click="showExportDialog = false" :disabled="exportLoading">取消</el-button>
+          <el-button type="primary" @click="performExport" :loading="exportLoading">
+            <el-icon v-if="!exportLoading"><Download /></el-icon>
+            {{ exportLoading ? '导出中...' : '开始导出' }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -486,7 +555,10 @@ import {
   Histogram,
   Monitor,
   UploadFilled,
-  ArrowDown
+  ArrowDown,
+  Document,
+  InfoFilled,
+  Folder
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { participantAPI, awardAPI, lotteryAPI } from '../api/index.js'
@@ -496,8 +568,12 @@ const activeMenu = ref('dashboard')
 const showImportDialog = ref(false)
 const showAwardDialog = ref(false)
 const showEditParticipantDialog = ref(false)
+const showExportDialog = ref(false)
 const isEditingAward = ref(false)
 const editingAwardId = ref(null)
+const exportLoading = ref(false)
+const exportType = ref('all') // 'all', 'current-page'
+const exportFormat = ref('xlsx') // 'xlsx', 'csv'
 
 // 统计数据
 const statistics = ref({
@@ -588,12 +664,55 @@ const fetchAwards = async () => {
 const lotteryRecords = ref([])
 const lotteryLoading = ref(false)
 
+// 抽奖记录分页相关
+const lotteryCurrentPage = ref(1)
+const lotteryPageSize = ref(10)
+const lotterySortField = ref('drawTime')
+const lotterySortOrder = ref('descending')
+
+// 分页和排序后的抽奖记录数据
+const paginatedLotteryRecords = computed(() => {
+  let sortedRecords = [...lotteryRecords.value]
+  
+  // 排序
+  if (lotterySortField.value) {
+    sortedRecords.sort((a, b) => {
+      let aValue = a[lotterySortField.value]
+      let bValue = b[lotterySortField.value]
+      
+      // 处理时间字段的排序
+      if (lotterySortField.value === 'drawTime') {
+        aValue = new Date(aValue).getTime()
+        bValue = new Date(bValue).getTime()
+      }
+      
+      // 处理数字字段的排序
+      if (lotterySortField.value === 'id' || lotterySortField.value === 'awardLevel' || lotterySortField.value === 'epoch') {
+        aValue = Number(aValue) || 0
+        bValue = Number(bValue) || 0
+      }
+      
+      if (lotterySortOrder.value === 'ascending') {
+        return aValue > bValue ? 1 : -1
+      } else {
+        return aValue < bValue ? 1 : -1
+      }
+    })
+  }
+  
+  // 分页
+  const start = (lotteryCurrentPage.value - 1) * lotteryPageSize.value
+  const end = start + lotteryPageSize.value
+  return sortedRecords.slice(start, end)
+})
+
 // 获取抽奖记录
 const fetchLotteryRecords = async () => {
   try {
     lotteryLoading.value = true
     const data = await lotteryAPI.getWinners()
     // 转换数据格式以匹配表格显示
+    console.log('data', data)
     lotteryRecords.value = data.map(record => ({
       id: record.id,
       winnerName: record.name,
@@ -601,7 +720,8 @@ const fetchLotteryRecords = async () => {
       awardLevel: record.award_level,
       drawTime: new Date(record.draw_time).toLocaleString(),
       department: record.department || '未知',
-      award: record.award
+      award: record.award,
+      epoch: record.epoch
     }))
   } catch (error) {
     console.error('获取抽奖记录失败:', error)
@@ -706,13 +826,132 @@ const importParticipants = async () => {
 }
 
 const exportParticipants = () => {
-  ElMessage.success('参与者名单导出成功！')
-  // 这里添加实际的导出逻辑
+  exportType.value = 'participants'
+  showExportDialog.value = true
+}
+
+// 执行导出操作
+const performExport = async () => {
+  try {
+    exportLoading.value = true
+    
+    let dataToExport = []
+    let filename = ''
+    let sheetName = ''
+    
+    if (exportType.value === 'participants') {
+      if (participants.value.length === 0) {
+        ElMessage.warning('暂无参与者数据可导出')
+        return
+      }
+      
+      dataToExport = participants.value.map((participant, index) => ({
+        '序号': index + 1,
+        'ID': participant.id,
+        '姓名': participant.name,
+        '部门': participant.department || '未设置',
+        '联系电话': participant.phone || '未设置',
+        '邮箱': participant.email || '未设置',
+        '中奖次数': participant.win_count || 0,
+        '状态': participant.status,
+        '创建时间': new Date(participant.createdAt).toLocaleString()
+      }))
+      filename = '参与者名单'
+      sheetName = '参与者名单'
+    } else if (exportType.value === 'lottery') {
+      if (lotteryRecords.value.length === 0) {
+        ElMessage.warning('暂无中奖记录可导出')
+        return
+      }
+      
+      dataToExport = lotteryRecords.value.map((record, index) => ({
+        '序号': index + 1,
+        '记录ID': record.id,
+        '中奖者': record.winnerName,
+        '部门': record.department || '未知',
+        '奖项名称': record.awardName,
+        '奖项等级': `${record.awardLevel}等奖`,
+        '抽奖轮次': record.epoch,
+        '抽奖时间': record.drawTime
+      }))
+      filename = '中奖名单'
+      sheetName = '中奖名单'
+    }
+
+    // 动态导入xlsx库
+    const XLSX = await import('xlsx')
+    
+    if (exportFormat.value === 'xlsx') {
+      // Excel导出
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(dataToExport)
+
+      // 设置列宽
+      const colWidths = exportType.value === 'participants' ? [
+        { wch: 8 },  // 序号
+        { wch: 8 },  // ID
+        { wch: 15 }, // 姓名
+        { wch: 20 }, // 部门
+        { wch: 15 }, // 联系电话
+        { wch: 25 }, // 邮箱
+        { wch: 10 }, // 中奖次数
+        { wch: 10 }, // 状态
+        { wch: 20 }  // 创建时间
+      ] : [
+        { wch: 8 },  // 序号
+        { wch: 10 }, // 记录ID
+        { wch: 15 }, // 中奖者
+        { wch: 20 }, // 部门
+        { wch: 20 }, // 奖项名称
+        { wch: 12 }, // 奖项等级
+        { wch: 10 }, // 抽奖轮次
+        { wch: 20 }  // 抽奖时间
+      ]
+      ws['!cols'] = colWidths
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName)
+      
+      const now = new Date()
+      const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-')
+      const fullFilename = `${filename}_${timestamp}.xlsx`
+      
+      XLSX.writeFile(wb, fullFilename)
+      ElMessage.success(`${filename}导出成功！文件名：${fullFilename}`)
+    } else if (exportFormat.value === 'csv') {
+      // CSV导出
+      const ws = XLSX.utils.json_to_sheet(dataToExport)
+      const csv = XLSX.utils.sheet_to_csv(ws)
+      
+      const now = new Date()
+      const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, '-')
+      const fullFilename = `${filename}_${timestamp}.csv`
+      
+      // 创建下载链接
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', fullFilename)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      ElMessage.success(`${filename}导出成功！文件名：${fullFilename}`)
+    }
+    
+    showExportDialog.value = false
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败，请重试')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 const exportWinners = () => {
-  ElMessage.success('中奖名单导出成功！')
-  // 这里添加实际的导出逻辑
+  exportType.value = 'lottery'
+  showExportDialog.value = true
 }
 
 // clearParticipants 方法已在上面重新实现
@@ -812,6 +1051,22 @@ const handleSizeChange = (val) => {
 
 const handleCurrentChange = (val) => {
   currentPage.value = val
+}
+
+// 抽奖记录分页事件处理
+const handleLotterySizeChange = (val) => {
+  lotteryPageSize.value = val
+  lotteryCurrentPage.value = 1
+}
+
+const handleLotteryCurrentChange = (val) => {
+  lotteryCurrentPage.value = val
+}
+
+// 抽奖记录排序事件处理
+const handleLotterySortChange = ({ prop, order }) => {
+  lotterySortField.value = prop
+  lotterySortOrder.value = order
 }
 
 // 清空参与者名单
@@ -1579,6 +1834,54 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 导出对话框样式 */
+.export-info {
+  background: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.export-info p {
+  margin: 0;
+  color: #0369a1;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-preview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #475569;
+}
+
+.el-radio {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.el-radio:hover {
+  background-color: #f8fafc;
+}
+
+.el-radio .el-icon {
+  margin-right: 6px;
 }
 
 /* 奖项网格 */

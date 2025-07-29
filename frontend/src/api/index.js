@@ -154,8 +154,12 @@ export const lotteryAPI = {
   // 开始新轮次
   nextRound() {
     return api.post('/lottery/next-round')
+  },
+  
+  // 获取抽奖状态
+  getStatus() {
+    return api.get('/lottery/status')
   }
-  //
 }
 
 export default api
