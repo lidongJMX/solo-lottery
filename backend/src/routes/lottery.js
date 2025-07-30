@@ -322,6 +322,9 @@ router.get('/winners/:awardId', async (req, res) => {
 // 重置抽奖（清空所有中奖记录）
 router.post('/reset', async (req, res) => {
   try {
+    // 临时禁用外键约束
+    await dbRun('PRAGMA foreign_keys = false');
+    
     // 清空中奖记录
     await dbRun('DELETE FROM Winner');
     
@@ -331,14 +334,27 @@ router.post('/reset', async (req, res) => {
     // 重置所有参与者的中奖状态
     const currentTime = new Date().toISOString();
     await dbRun(
-      'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = NULL, updatedAt = ?',
+      'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = 100, updatedAt = ?',
       [currentTime]
     );
     
+    // 重置当前轮次状态
+    await dbRun('UPDATE Epoch SET  epoch = 1,status = 1');
+
+    // 重新启用外键约束
+    await dbRun('PRAGMA foreign_keys = true');
+    
+    console.log('抽奖数据重置成功');
     res.json({ message: '抽奖重置成功' });
   } catch (error) {
     console.error('重置抽奖失败:', error);
-    res.status(500).json({ error: '重置抽奖失败' });
+    // 确保重新启用外键约束
+    try {
+      await dbRun('PRAGMA foreign_keys = true');
+    } catch (pragmaError) {
+      console.error('重新启用外键约束失败:', pragmaError);
+    }
+    res.status(500).json({ error: '重置抽奖失败: ' + error.message });
   }
 });
 

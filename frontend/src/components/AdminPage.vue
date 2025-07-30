@@ -335,30 +335,65 @@
         <div v-if="activeMenu === 'settings'" class="settings">
           <h2 class="section-title">系统设置</h2>
           
-          <div class="settings-form">
-            <el-form :model="settings" label-width="120px">
-              <el-form-item label="系统名称">
-                <el-input v-model="settings.systemName" placeholder="请输入系统名称" />
-              </el-form-item>
-              
-              <el-form-item label="组织名称">
-                <el-input v-model="settings.organizationName" placeholder="请输入组织名称" />
-              </el-form-item>
-              
-              <el-form-item label="抽奖动画时长">
-                <el-input-number v-model="settings.animationDuration" :min="1000" :max="10000" :step="500" />
-                <span class="form-help">毫秒</span>
-              </el-form-item>
-              
-              <el-form-item label="自动保存">
-                <el-switch v-model="settings.autoSave" />
-              </el-form-item>
-              
-              <el-form-item>
-                <el-button type="primary" @click="saveSettings">保存设置</el-button>
-                <el-button @click="resetSettings">重置</el-button>
-              </el-form-item>
-            </el-form>
+          <!-- 基础设置 -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">基础设置</h3>
+            <div class="settings-form">
+              <el-form :model="settings" label-width="120px">
+                <el-form-item label="系统名称">
+                  <el-input v-model="settings.systemName" placeholder="请输入系统名称" />
+                </el-form-item>
+                
+                <el-form-item label="组织名称">
+                  <el-input v-model="settings.organizationName" placeholder="请输入组织名称" />
+                </el-form-item>
+                
+                <el-form-item label="抽奖动画时长">
+                  <el-input-number v-model="settings.animationDuration" :min="1000" :max="10000" :step="500" />
+                  <span class="form-help">毫秒</span>
+                </el-form-item>
+                
+                <el-form-item label="自动保存">
+                  <el-switch v-model="settings.autoSave" />
+                </el-form-item>
+                
+                <el-form-item>
+                  <el-button type="primary" @click="saveSettings">保存设置</el-button>
+                  <el-button @click="resetSettings">重置</el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+          </div>
+
+          <!-- 数据管理 -->
+          <div class="settings-section danger-section">
+            <h3 class="settings-section-title danger-title">
+              <el-icon><Warning /></el-icon>
+              危险操作
+            </h3>
+            <div class="danger-content">
+              <div class="danger-item">
+                <div class="danger-info">
+                  <h4>重置抽奖数据</h4>
+                  <p>此操作将清空所有中奖记录、重置参与者中奖状态、重置奖项剩余数量，且不可恢复！</p>
+                  <ul class="reset-details">
+                    <li>清空所有中奖记录</li>
+                    <li>重置所有参与者的中奖状态和中奖次数</li>
+                    <li>恢复所有奖项的剩余数量</li>
+                    <li>重置轮次信息</li>
+                  </ul>
+                </div>
+                <el-button 
+                  type="danger" 
+                  @click="resetLotteryData"
+                  :loading="resetLoading"
+                  size="large"
+                >
+                  <el-icon><RefreshLeft /></el-icon>
+                  {{ resetLoading ? '重置中...' : '重置抽奖数据' }}
+                </el-button>
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -558,7 +593,9 @@ import {
   ArrowDown,
   Document,
   InfoFilled,
-  Folder
+  Folder,
+  Warning,
+  RefreshLeft
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { participantAPI, awardAPI, lotteryAPI } from '../api/index.js'
@@ -574,6 +611,7 @@ const editingAwardId = ref(null)
 const exportLoading = ref(false)
 const exportType = ref('all') // 'all', 'current-page'
 const exportFormat = ref('xlsx') // 'xlsx', 'csv'
+const resetLoading = ref(false)
 
 // 统计数据
 const statistics = ref({
@@ -1317,6 +1355,61 @@ const resetSettings = () => {
   ElMessage.success('设置已重置')
 }
 
+// 重置抽奖数据
+const resetLotteryData = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '此操作将清空所有抽奖数据，包括：\n\n• 所有中奖记录\n• 参与者中奖状态\n• 奖项剩余数量\n• 轮次信息\n\n此操作不可恢复，确认要继续吗？',
+      '重置抽奖数据',
+      {
+        confirmButtonText: '确认重置',
+        cancelButtonText: '取消',
+        type: 'error',
+        dangerouslyUseHTMLString: true,
+        customClass: 'reset-confirm-dialog'
+      }
+    )
+    
+    // 二次确认
+    await ElMessageBox.confirm(
+      '最后确认：您真的要重置所有抽奖数据吗？\n\n这将删除所有中奖记录和相关数据！',
+      '最终确认',
+      {
+        confirmButtonText: '我确认要重置',
+        cancelButtonText: '取消',
+        type: 'error',
+        dangerouslyUseHTMLString: true
+      }
+    )
+    
+    resetLoading.value = true
+    
+    // 调用后端重置API
+    const result = await lotteryAPI.reset()
+    
+    ElMessage.success({
+      message: '抽奖数据重置成功！所有中奖记录已清空，奖项数量已恢复。',
+      duration: 5000
+    })
+    
+    // 重新获取所有数据
+    await Promise.all([
+      fetchParticipants(),
+      fetchAwards(),
+      fetchLotteryRecords(),
+      fetchStatistics()
+    ])
+    
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('重置抽奖数据失败:', error)
+      ElMessage.error('重置抽奖数据失败：' + (error.response?.data?.error || error.message))
+    }
+  } finally {
+    resetLoading.value = false
+  }
+}
+
 // 获取奖项等级标签类型
 const getAwardLevelType = (level) => {
   const levelNum = parseInt(level)
@@ -1563,6 +1656,76 @@ onMounted(async () => {
 .chart-icon {
   font-size: 48px;
   margin-bottom: 12px;
+}
+
+/* 设置页面样式 */
+.settings-section {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.settings-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.danger-section {
+  border: 1px solid #f56c6c;
+  background: #fef0f0;
+}
+
+.danger-title {
+  color: #f56c6c;
+}
+
+.danger-content {
+  background: white;
+  border-radius: 6px;
+  padding: 20px;
+  border: 1px solid #fde2e2;
+}
+
+.danger-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.danger-info {
+  flex: 1;
+}
+
+.danger-info h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.danger-info p {
+  margin: 0 0 12px 0;
+  color: #606266;
+  line-height: 1.5;
+}
+
+.reset-details {
+  margin: 0;
+  padding-left: 20px;
+  color: #909399;
+}
+
+.reset-details li {
+  margin-bottom: 4px;
+  font-size: 14px;
 }
 
 /* 导入区域 */
