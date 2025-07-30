@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import xlsx from 'xlsx';
-import { dbAll, dbGet, dbRun } from '../database/init.js';
+import { dbAll, dbGet, dbRun, dbTransaction } from '../database/init.js';
 
 const router = express.Router();
 
@@ -88,12 +88,16 @@ router.post('/', async (req, res) => {
     }
 
     const currentTime = new Date().toISOString();
-    const result = await dbRun(
-      'INSERT INTO Participant (name, user_id, department, phone, email, weight, has_won, win_count, high_award_level, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, null, department || null, phone || null, email || null, 1.0, 0, 0, 100, currentTime, currentTime]
-    );
+    
+    // 使用事务添加参与者
+    const results = await dbTransaction([
+      {
+        sql: 'INSERT INTO Participant (name, user_id, department, phone, email, weight, has_won, win_count, high_award_level, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        params: [name, null, department || null, phone || null, email || null, 1.0, 0, 0, 100, currentTime, currentTime]
+      }
+    ]);
 
-    const newParticipant = await dbGet('SELECT * FROM Participant WHERE id = ?', [result.lastID]);
+    const newParticipant = await dbGet('SELECT * FROM Participant WHERE id = ?', [results[0].lastID]);
     res.status(201).json(newParticipant);
   } catch (error) {
     console.error('添加参与者失败:', error);
@@ -118,10 +122,14 @@ router.put('/:id', async (req, res) => {
     }
 
     const currentTime = new Date().toISOString();
-    await dbRun(
-      'UPDATE Participant SET name = ?, department = ?, phone = ?, email = ?, updatedAt = ? WHERE id = ?',
-      [name, department, phone, email, currentTime, id]
-    );
+    
+    // 使用事务更新参与者
+    await dbTransaction([
+      {
+        sql: 'UPDATE Participant SET name = ?, department = ?, phone = ?, email = ?, updatedAt = ? WHERE id = ?',
+        params: [name, department, phone, email, currentTime, id]
+      }
+    ]);
 
     const updatedParticipant = await dbGet('SELECT * FROM Participant WHERE id = ?', [id]);
     res.json(updatedParticipant);
@@ -147,17 +155,38 @@ router.delete('/clear-all', async (req, res) => {
       });
     }
 
+    // 获取参与者数量
+    const participantsCount = await dbGet('SELECT COUNT(*) as count FROM Participant');
+    
+    // 使用事务确保数据一致性
+    const clearOperations = [];
+    
     // 如果强制清空，先删除所有中奖记录
     if (force && winnersCount.count > 0) {
-      await dbRun('DELETE FROM Winner');
+      clearOperations.push({
+        sql: 'DELETE FROM Winner',
+        params: []
+      });
+      
+      // 重置所有奖项的剩余数量
+      clearOperations.push({
+        sql: 'UPDATE Award SET remaining_count = count',
+        params: []
+      });
     }
 
     // 删除所有参与者
-    const result = await dbRun('DELETE FROM Participant');
+    clearOperations.push({
+      sql: 'DELETE FROM Participant',
+      params: []
+    });
+    
+    const results = await dbTransaction(clearOperations);
+    const deletedCount = results[results.length - 1].changes || 0;
     
     res.json({ 
       message: '清空成功',
-      deletedCount: result.changes || 0,
+      deletedCount: deletedCount,
       winnersCleared: force && winnersCount.count > 0 ? winnersCount.count : 0
     });
   } catch (error) {
@@ -271,42 +300,65 @@ router.post('/import', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '文件中没有有效的参与者数据' });
     }
 
-    // 批量插入数据库
-    const currentTime = new Date().toISOString();
-    let successCount = 0;
-    const errors = [];
-
-    for (const participant of participants) {
-      try {
-        await dbRun(
-          'INSERT INTO Participant (name, user_id, department, phone, email, weight, has_won, win_count, high_award_level, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            participant.name,
-            participant.user_id || null,
-            participant.department || null,
-            null, // phone
-            null, // email
-            1.0,  // weight
-            0,    // has_won
-            0,    // win_count
-            100,  // high_award_level
-            currentTime,
-            currentTime
-          ]
-        );
-        successCount++;
-      } catch (error) {
-        errors.push(`${participant.name}: ${error.message}`);
-      }
+    // 检查重复姓名
+    const existingNames = await dbAll('SELECT name FROM Participant WHERE name IN (' + participants.map(() => '?').join(',') + ')', participants.map(p => p.name));
+    const existingNameSet = new Set(existingNames.map(row => row.name));
+    
+    // 过滤掉已存在的参与者
+    const newParticipants = participants.filter(p => !existingNameSet.has(p.name));
+    const duplicateCount = participants.length - newParticipants.length;
+    
+    if (newParticipants.length === 0) {
+      return res.json({
+        message: '导入完成',
+        total: participants.length,
+        success: 0,
+        duplicates: duplicateCount,
+        errors: 0,
+        errorDetails: duplicateCount > 0 ? ['所有参与者都已存在'] : []
+      });
     }
 
-    res.json({
-      message: '导入完成',
-      total: participants.length,
-      success: successCount,
-      errors: errors.length,
-      errorDetails: errors
-    });
+    // 使用事务批量插入数据库
+    const currentTime = new Date().toISOString();
+    const insertOperations = newParticipants.map(participant => ({
+      sql: 'INSERT INTO Participant (name, user_id, department, phone, email, weight, has_won, win_count, high_award_level, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      params: [
+        participant.name,
+        participant.user_id || null,
+        participant.department || null,
+        null, // phone
+        null, // email
+        1.0,  // weight
+        0,    // has_won
+        0,    // win_count
+        100,  // high_award_level
+        currentTime,
+        currentTime
+      ]
+    }));
+
+    try {
+      await dbTransaction(insertOperations);
+      
+      res.json({
+        message: '导入完成',
+        total: participants.length,
+        success: newParticipants.length,
+        duplicates: duplicateCount,
+        errors: 0,
+        errorDetails: duplicateCount > 0 ? [`跳过 ${duplicateCount} 个重复参与者`] : []
+      });
+    } catch (error) {
+      console.error('批量导入事务失败:', error);
+      res.status(500).json({ 
+        error: '批量导入失败: ' + error.message,
+        total: participants.length,
+        success: 0,
+        duplicates: duplicateCount,
+        errors: newParticipants.length
+      });
+    }
   } catch (error) {
     console.error('批量导入参与者失败:', error);
     res.status(500).json({ error: '批量导入失败: ' + error.message });

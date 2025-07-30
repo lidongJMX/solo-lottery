@@ -1,5 +1,5 @@
 import express from 'express';
-import { dbAll, dbGet, dbRun } from '../database/init.js';
+import { dbAll, dbGet, dbRun, dbTransaction } from '../database/init.js';
 
 const router = express.Router();
 
@@ -84,14 +84,6 @@ router.post('/draw', async (req, res) => {
         selectedParticipant = selectByProbability(participantsCopy);
       }
       
-      // 记录中奖信息
-      const currentTime = new Date().toISOString();
-      const result = await dbRun(
-        'INSERT INTO Winner (participant_id, award_id, epoch, draw_time, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
-        [selectedParticipant.id, awardId, epoch, currentTime, currentTime, currentTime]
-      );
-      
-      // 同步更新参与者表中的中奖信息
       // 获取参与者当前的中奖统计
       const participantStats = await dbGet(
         'SELECT win_count, high_award_level FROM Participant WHERE id = ?',
@@ -102,11 +94,21 @@ router.post('/draw', async (req, res) => {
       const currentHighLevel = participantStats.high_award_level || 999;
       const newHighLevel = Math.min(currentHighLevel, award.level);
       
-      // 更新参与者的中奖状态
-      await dbRun(
-        'UPDATE Participant SET has_won = 1, win_count = ?, high_award_level = ?, updatedAt = ? WHERE id = ?',
-        [newWinCount, newHighLevel, currentTime, selectedParticipant.id]
-      );
+      // 使用事务记录中奖信息和更新参与者状态
+      const currentTime = new Date().toISOString();
+      const transactionOperations = [
+        {
+          sql: 'INSERT INTO Winner (participant_id, award_id, epoch, draw_time, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
+          params: [selectedParticipant.id, awardId, epoch, currentTime, currentTime, currentTime]
+        },
+        {
+          sql: 'UPDATE Participant SET has_won = 1, win_count = ?, high_award_level = ?, updatedAt = ? WHERE id = ?',
+          params: [newWinCount, newHighLevel, currentTime, selectedParticipant.id]
+        }
+      ];
+      
+      const results = await dbTransaction(transactionOperations);
+      const result = results[0]; // 获取插入Winner记录的结果
       
       winners.push({
         id: result.lastID,
@@ -118,11 +120,13 @@ router.post('/draw', async (req, res) => {
       });
     }
 
-    // 更新奖项剩余数量
-    await dbRun(
-      'UPDATE Award SET remaining_count = remaining_count - ? WHERE id = ?',
-      [actualCount, awardId]
-    );
+    // 使用事务更新奖项剩余数量
+    await dbTransaction([
+      {
+        sql: 'UPDATE Award SET remaining_count = remaining_count - ? WHERE id = ?',
+        params: [actualCount, awardId]
+      }
+    ]);
 
     res.json({
       success: true,
@@ -330,38 +334,38 @@ router.get('/winners/:awardId', async (req, res) => {
 // 重置抽奖（清空所有中奖记录）
 router.post('/reset', async (req, res) => {
   try {
-    // 临时禁用外键约束
-    await dbRun('PRAGMA foreign_keys = false');
-    
-    // 清空中奖记录
-    await dbRun('DELETE FROM Winner');
-    
-    // 重置所有奖项的剩余数量
-    await dbRun('UPDATE Award SET remaining_count = count');
-    
-    // 重置所有参与者的中奖状态
     const currentTime = new Date().toISOString();
-    await dbRun(
-      'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = 100, updatedAt = ?',
-      [currentTime]
-    );
     
-    // 重置当前轮次状态
-    await dbRun('UPDATE Epoch SET  epoch = 1,status = 1');
-
-    // 重新启用外键约束
-    await dbRun('PRAGMA foreign_keys = true');
+    // 使用事务确保数据一致性，按正确顺序删除数据以避免外键约束问题
+    const resetOperations = [
+      // 1. 清空中奖记录（必须先删除，因为有外键约束）
+      {
+        sql: 'DELETE FROM Winner',
+        params: []
+      },
+      // 2. 重置所有奖项的剩余数量
+      {
+        sql: 'UPDATE Award SET remaining_count = count',
+        params: []
+      },
+      // 3. 重置所有参与者的中奖状态
+      {
+        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = NULL, updatedAt = ?',
+        params: [currentTime]
+      },
+      // 4. 重置当前轮次状态
+      {
+        sql: 'UPDATE Epoch SET epoch = 1, status = 1, updatedAt = ?',
+        params: [currentTime]
+      }
+    ];
+    
+    await dbTransaction(resetOperations);
     
     console.log('抽奖数据重置成功');
     res.json({ message: '抽奖重置成功' });
   } catch (error) {
     console.error('重置抽奖失败:', error);
-    // 确保重新启用外键约束
-    try {
-      await dbRun('PRAGMA foreign_keys = true');
-    } catch (pragmaError) {
-      console.error('重新启用外键约束失败:', pragmaError);
-    }
     res.status(500).json({ error: '重置抽奖失败: ' + error.message });
   }
 });
@@ -455,41 +459,49 @@ router.delete('/winners/:winnerId', async (req, res) => {
       return res.status(404).json({ error: '中奖记录不存在' });
     }
     
-    // 删除中奖记录
-    await dbRun('DELETE FROM Winner WHERE id = ?', [winnerId]);
-    
-    // 恢复奖项数量
-    await dbRun(
-      'UPDATE Award SET remaining_count = remaining_count + 1 WHERE id = ?',
-      [winner.award_id]
-    );
-    
-    // 重新计算该参与者的中奖统计
+    // 重新计算该参与者删除此记录后的中奖统计
     const participantWins = await dbAll(
       `SELECT w.*, a.level FROM Winner w 
        JOIN Award a ON w.award_id = a.id 
-       WHERE w.participant_id = ? 
+       WHERE w.participant_id = ? AND w.id != ?
        ORDER BY a.level ASC`,
-      [winner.participant_id]
+      [winner.participant_id, winnerId]
     );
     
     const currentTime = new Date().toISOString();
+    const transactionOperations = [
+      // 1. 删除中奖记录
+      {
+        sql: 'DELETE FROM Winner WHERE id = ?',
+        params: [winnerId]
+      },
+      // 2. 恢复奖项数量
+      {
+        sql: 'UPDATE Award SET remaining_count = remaining_count + 1 WHERE id = ?',
+        params: [winner.award_id]
+      }
+    ];
+    
+    // 3. 更新参与者中奖统计
     if (participantWins.length === 0) {
       // 该参与者已无中奖记录，重置为未中奖状态
-      await dbRun(
-        'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = NULL, updatedAt = ? WHERE id = ?',
-        [currentTime, winner.participant_id]
-      );
+      transactionOperations.push({
+        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = NULL, updatedAt = ? WHERE id = ?',
+        params: [currentTime, winner.participant_id]
+      });
     } else {
       // 重新计算中奖统计
       const newWinCount = participantWins.length;
       const newHighLevel = Math.min(...participantWins.map(w => w.level));
       
-      await dbRun(
-        'UPDATE Participant SET has_won = 1, win_count = ?, high_award_level = ?, updatedAt = ? WHERE id = ?',
-        [newWinCount, newHighLevel, currentTime, winner.participant_id]
-      );
+      transactionOperations.push({
+        sql: 'UPDATE Participant SET has_won = 1, win_count = ?, high_award_level = ?, updatedAt = ? WHERE id = ?',
+        params: [newWinCount, newHighLevel, currentTime, winner.participant_id]
+      });
     }
+    
+    // 使用事务执行所有操作
+    await dbTransaction(transactionOperations);
     
     res.json({ message: '中奖记录撤销成功' });
   } catch (error) {

@@ -35,6 +35,47 @@ export const dbRun = (sql, params = []) => {
 export const dbGet = promisify(db.get.bind(db));
 export const dbAll = promisify(db.all.bind(db));
 
+// 事务处理函数
+export const dbTransaction = async (operations) => {
+  return new Promise((resolve, reject) => {
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION', (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        const executeOperations = async () => {
+          try {
+            const results = [];
+            for (const operation of operations) {
+              const result = await dbRun(operation.sql, operation.params);
+              results.push(result);
+            }
+            
+            db.run('COMMIT', (commitErr) => {
+              if (commitErr) {
+                reject(commitErr);
+              } else {
+                resolve(results);
+              }
+            });
+          } catch (error) {
+            db.run('ROLLBACK', (rollbackErr) => {
+              if (rollbackErr) {
+                console.error('回滚失败:', rollbackErr);
+              }
+              reject(error);
+            });
+          }
+        };
+        
+        executeOperations();
+      });
+    });
+  });
+};
+
 // 初始化数据库
 export async function initDatabase() {
   try {

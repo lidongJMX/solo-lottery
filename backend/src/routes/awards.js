@@ -1,5 +1,5 @@
 import express from 'express';
-import { dbAll, dbGet, dbRun } from '../database/init.js';
+import { dbAll, dbGet, dbRun, dbTransaction } from '../database/init.js';
 
 const router = express.Router();
 
@@ -65,12 +65,16 @@ router.post('/', async (req, res) => {
     }
 
     const currentTime = new Date().toISOString();
-    const result = await dbRun(
-      'INSERT INTO Award (name, description, count, remaining_count, level, draw_count, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, description, count, count, level, drawCount, currentTime, currentTime]
-    );
+    
+    // 使用事务添加奖项
+    const results = await dbTransaction([
+      {
+        sql: 'INSERT INTO Award (name, description, count, remaining_count, level, draw_count, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        params: [name, description, count, count, level, drawCount, currentTime, currentTime]
+      }
+    ]);
 
-    const newAward = await dbGet('SELECT * FROM Award WHERE id = ?', [result.lastID]);
+    const newAward = await dbGet('SELECT * FROM Award WHERE id = ?', [results[0].lastID]);
     res.status(201).json(newAward);
   } catch (error) {
     console.error('添加奖项失败:', error);
@@ -115,10 +119,13 @@ router.put('/:id', async (req, res) => {
     const remaining_count = count - drawnCount;
     const currentTime = new Date().toISOString();
 
-    await dbRun(
-      'UPDATE Award SET level = ?, name = ?, description = ?, count = ?, remaining_count = ?, draw_count = ?, updatedAt = ? WHERE id = ?',
-      [level, name, description, count, remaining_count, drawCount, currentTime, id]
-    );
+    // 使用事务更新奖项
+    await dbTransaction([
+      {
+        sql: 'UPDATE Award SET level = ?, name = ?, description = ?, count = ?, remaining_count = ?, draw_count = ?, updatedAt = ? WHERE id = ?',
+        params: [level, name, description, count, remaining_count, drawCount, currentTime, id]
+      }
+    ]);
 
     const updatedAward = await dbGet('SELECT * FROM Award WHERE id = ?', [id]);
     res.json(updatedAward);
@@ -140,12 +147,23 @@ router.delete('/:id', async (req, res) => {
     }
 
     // 检查是否有中奖记录
-    const hasWinners = await dbGet('SELECT id FROM Winner WHERE award_id = ?', [id]);
-    if (hasWinners) {
-      return res.status(400).json({ error: '该奖项已有中奖记录，无法删除' });
+    const winners = await dbAll('SELECT * FROM Winner WHERE award_id = ?', [id]);
+    if (winners.length > 0) {
+      return res.status(400).json({ 
+        error: '该奖项已有中奖记录，无法删除',
+        winnersCount: winners.length,
+        suggestion: '请先删除相关中奖记录或使用重置功能'
+      });
     }
 
-    await dbRun('DELETE FROM Award WHERE id = ?', [id]);
+    // 使用事务删除奖项
+    await dbTransaction([
+      {
+        sql: 'DELETE FROM Award WHERE id = ?',
+        params: [id]
+      }
+    ]);
+    
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('删除奖项失败:', error);
