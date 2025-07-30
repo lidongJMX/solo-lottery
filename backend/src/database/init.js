@@ -11,6 +11,15 @@ const dbPath = path.join(__dirname, '../../data/lottery.db');
 // 创建数据库连接
 export const db = new sqlite3.Database(dbPath);
 
+// 优化数据库性能配置
+db.serialize(() => {
+  db.run('PRAGMA journal_mode = WAL'); // 启用WAL模式提升并发性能
+  db.run('PRAGMA synchronous = NORMAL'); // 平衡性能和数据安全
+  db.run('PRAGMA cache_size = 10000'); // 增加缓存大小
+  db.run('PRAGMA temp_store = MEMORY'); // 临时数据存储在内存中
+  db.run('PRAGMA foreign_keys = ON'); // 启用外键约束
+});
+
 // 将回调函数转换为Promise
 export const dbRun = (sql, params = []) => {
   return new Promise((resolve, reject) => {
@@ -109,9 +118,26 @@ export async function initDatabase() {
     // 插入默认数据（仅在表为空时插入）
     const currentTime = new Date().toISOString();
     
+    // 优化：一次查询检查所有表的数据存在性
+    const tableChecks = await dbAll(`
+      SELECT 'Admin' as table_name, COUNT(*) as count FROM "Admin"
+      UNION ALL
+      SELECT 'Epoch' as table_name, COUNT(*) as count FROM "Epoch"
+      UNION ALL
+      SELECT 'Award' as table_name, COUNT(*) as count FROM "Award"
+      UNION ALL
+      SELECT 'Participant' as table_name, COUNT(*) as count FROM "Participant"
+      UNION ALL
+      SELECT 'Winner' as table_name, COUNT(*) as count FROM "Winner"
+    `);
+
+    const tableCounts = {};
+    tableChecks.forEach(check => {
+      tableCounts[check.table_name] = check.count;
+    });
+    
     // 检查Admin表是否有数据
-    const existingAdminCount = await dbGet('SELECT COUNT(*) as count FROM "Admin"');
-    if (existingAdminCount.count === 0) {
+    if (tableCounts.Admin === 0) {
       const defaultAdmin = {
         username: 'admin',
         password: 'admin123', // 实际应用中应该加密存储
@@ -129,8 +155,7 @@ export async function initDatabase() {
     }
 
     // 检查Epoch表是否有数据
-    const existingEpochCount = await dbGet('SELECT COUNT(*) as count FROM "Epoch"');
-    if (existingEpochCount.count === 0) {
+    if (tableCounts.Epoch === 0) {
       const defaultEpoch = {
         epoch: 1,
         status: 1,
@@ -148,8 +173,7 @@ export async function initDatabase() {
     }
 
     // 检查Award表是否有数据
-    const existingAwardCount = await dbGet('SELECT COUNT(*) as count FROM "Award"');
-    if (existingAwardCount.count === 0) {
+    if (tableCounts.Award === 0) {
       const defaultAwards = [
         {
           name: '小天鹅 LittleSwan 洗烘套装',
@@ -183,20 +207,28 @@ export async function initDatabase() {
         }
       ];
 
+      // 优化：批量插入奖项数据
+      const awardPlaceholders = defaultAwards.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+      const awardValues = [];
+      
       for (const award of defaultAwards) {
-        await dbRun(
-          'INSERT INTO "Award" ("name", "description", "count", "remaining_count", "level", "draw_count", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [award.name, award.description, award.count, award.remaining_count, award.level, award.draw_count, award.createdAt, award.updatedAt]
+        awardValues.push(
+          award.name, award.description, award.count, award.remaining_count, 
+          award.level, award.draw_count, award.createdAt, award.updatedAt
         );
       }
-      console.log('默认奖项数据插入完成');
+      
+      await dbRun(
+        `INSERT INTO "Award" ("name", "description", "count", "remaining_count", "level", "draw_count", "createdAt", "updatedAt") VALUES ${awardPlaceholders}`,
+        awardValues
+      );
+      console.log('默认奖项数据批量插入完成');
     } else {
       console.log('Award表中已有数据，跳过默认数据插入');
     }
 
     // 检查Participant表是否有数据
-    const existingParticipantCount = await dbGet('SELECT COUNT(*) as count FROM "Participant"');
-    if (existingParticipantCount.count === 0) {
+    if (tableCounts.Participant === 0) {
       const defaultParticipants = [
         '张雨晨', '李思成', '王梓萱', '陈宇航', '刘欣怡',
         '黄子豪', '周美玲', '吴承翰', '赵雅婷', '孙浩然',
@@ -204,20 +236,25 @@ export async function initDatabase() {
         '杨雨欣', '林子轩', '范思涵', '金子轩', '唐嘉怡'
       ];
 
+      // 优化：批量插入参与者数据
+      const participantPlaceholders = defaultParticipants.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+      const participantValues = [];
+      
       for (const name of defaultParticipants) {
-        await dbRun(
-          'INSERT INTO "Participant" ("name", "user_id", "department", "weight", "has_won", "win_count", "high_award_level", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [name, null, '技术部', 1.0, 0, 0, 100, currentTime, currentTime]
-        );
+        participantValues.push(name, null, '技术部', 1.0, 0, 0, 100, currentTime, currentTime);
       }
-      console.log('默认参与者数据插入完成');
+      
+      await dbRun(
+        `INSERT INTO "Participant" ("name", "user_id", "department", "weight", "has_won", "win_count", "high_award_level", "createdAt", "updatedAt") VALUES ${participantPlaceholders}`,
+        participantValues
+      );
+      console.log('默认参与者数据批量插入完成');
     } else {
       console.log('Participant表中已有数据，跳过默认数据插入');
     }
     
     // 检查Winner表是否有数据（通常为空，但为了完整性也检查）
-    const existingWinnerCount = await dbGet('SELECT COUNT(*) as count FROM "Winner"');
-    if (existingWinnerCount.count === 0) {
+    if (tableCounts.Winner === 0) {
       console.log('Winner表为空，无需插入默认数据');
     } else {
       console.log('Winner表中已有数据');

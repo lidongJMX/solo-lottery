@@ -1,10 +1,9 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-// 创建axios实例
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
-  timeout: 10000,
+  timeout: 30000, // 增加超时时间到30秒
   headers: {
     'Content-Type': 'application/json'
   }
@@ -21,17 +20,43 @@ api.interceptors.request.use(
   }
 )
 
-// 响应拦截器
+// 响应拦截器（添加重试机制）
 api.interceptors.response.use(
   response => {
     return response.data
   },
-  error => {
-    // 只有在真正的错误状态码时才显示错误消息
-    if (error.response && error.response.status >= 400) {
-      const message = error.response?.data?.error || '请求失败'
-      ElMessage.error(message)
+  async error => {
+    const config = error.config;
+    
+    // 如果是网络错误且未达到重试上限，进行重试
+    if (!config.__retryCount) {
+      config.__retryCount = 0;
     }
+    
+    if (config.__retryCount < 2 && 
+        (error.code === 'ECONNABORTED' || 
+         error.message.includes('timeout') || 
+         error.message.includes('Network Error'))) {
+      config.__retryCount += 1;
+      
+      console.log(`网络请求重试 ${config.__retryCount}/2: ${config.url}`);
+      
+      // 延迟重试，避免立即重试
+      await new Promise(resolve => setTimeout(resolve, 1000 * config.__retryCount));
+      
+      return api(config);
+    }
+    
+    // 显示错误信息
+    if (error.response) {
+      const message = error.response.data?.error || '请求失败'
+      ElMessage.error(message)
+    } else if (error.request) {
+      ElMessage.error('网络连接失败，请检查网络状态')
+    } else {
+      ElMessage.error('请求配置错误')
+    }
+    
     return Promise.reject(error)
   }
 )

@@ -35,12 +35,20 @@
         </div>
       </div>
     </div>
+    
+    <!-- 底部导航栏 -->
+    <BottomNavigation />
   </div>
 </template>
 
 <script>
+import BottomNavigation from './BottomNavigation.vue'
+
 export default {
   name: 'Home',
+  components: {
+    BottomNavigation
+  },
   data() {
     return {
       editableText: '',

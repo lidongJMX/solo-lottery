@@ -16,7 +16,7 @@
       <!-- 主要内容 -->
       <div class="max-w-[1200px] mx-auto mt-0 rounded-lg p-8">
 
-        
+
         <!-- 奖项展示 -->
         <div class="flex flex-col items-center">
           <!-- 奖项信息容器 -->
@@ -32,8 +32,8 @@
             <!-- items-center: 默认显示的奖项信息 -->
             <div class="items-center transition-all duration-1000 transform-gpu"
               :class="{ 'scale-0 opacity-0': showWinnerNames }">
-              <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center transition-all duration-1000 transform-gpu"
-                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.name }}</h2>
+              <!-- <h2 class="text-yellow-400 text-xl font-bold mb-2 text-center transition-all duration-1000 transform-gpu"
+                :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.name }}</h2> -->
               <p class="text-white text-base mb-4 text-center transition-all duration-1000 transform-gpu"
                 :class="{ 'scale-0 opacity-0': showWinnerNames }">{{ currentAward.description }}</p>
             </div>
@@ -76,13 +76,8 @@
             class="mt-4 flex items-center justify-center gap-4 bg-gradient-to-r from-red-700/20 to-yellow-600/20 border border-yellow-400/30 p-4 rounded-lg max-w-4xl mx-auto backdrop-blur-sm">
             <!-- 数量控制 -->
             <div class="flex items-center gap-2">
-              <el-input-number 
-                v-model="drawCount" 
-                :min="1" 
-                :max="currentAward.count || 10" 
-                class="!rounded-button custom-input-number"
-                @change="updateDrawCount" 
-              />
+              <el-input-number v-model="drawCount" :min="1" :max="currentAward.count || 10"
+                class="!rounded-button custom-input-number" @change="updateDrawCount" />
             </div>
             <!-- 奖项选择 -->
             <div class="flex items-center gap-2">
@@ -142,10 +137,17 @@
 
     <!-- 醒目的中奖弹窗 -->
     <div v-if="showWinnerDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       @click="closeWinnerDialog">
       <div
-        class="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-3xl p-8 mx-4 max-w-4xl w-full shadow-2xl"
+        class="relative bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-3xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto"
+        :class="{
+          'w-full max-w-md': currentWinners.length <= 1,
+          'w-full max-w-2xl': currentWinners.length === 2,
+          'w-full max-w-4xl': currentWinners.length >= 3 && currentWinners.length <= 6,
+          'w-full max-w-6xl': currentWinners.length > 6 && currentWinners.length <= 12,
+          'w-full max-w-7xl': currentWinners.length > 12
+        }"
         @click.stop>
         <!-- 装饰性边框 -->
         <div class="absolute inset-0 rounded-3xl border-4 border-yellow-400 opacity-75"></div>
@@ -169,16 +171,36 @@
 
         <!-- 中奖者列表 -->
         <div class="relative z-10">
-          <div class="grid gap-6 place-items-center justify-items-center" :class="{
+          <div class="grid gap-4 place-items-center justify-items-center" :class="{
             'grid-cols-1': currentWinners.length <= 1,
             'grid-cols-2': currentWinners.length === 2,
             'grid-cols-3': currentWinners.length >= 3 && currentWinners.length <= 6,
-            'grid-cols-4': currentWinners.length > 6
+            'grid-cols-4': currentWinners.length > 6 && currentWinners.length <= 12,
+            'grid-cols-5': currentWinners.length > 12 && currentWinners.length <= 20,
+            'grid-cols-6': currentWinners.length > 20
           }">
             <div v-for="(winner, index) in currentWinners" :key="index"
-              class="bg-yellow-400 text-red-800 px-8 py-4 rounded-2xl shadow-lg text-center min-w-[200px] w-full max-w-[280px]">
-              <div class="text-3xl font-bold mb-2 break-words">{{ winner.name }}</div>
-              <div class="text-lg text-red-600 break-words">{{ winner.department || '未知部门' }}</div>
+              class="bg-yellow-400 text-red-800 px-4 py-3 rounded-2xl shadow-lg text-center w-full"
+              :class="{
+                'min-w-[200px] max-w-[280px]': currentWinners.length <= 6,
+                'min-w-[160px] max-w-[200px]': currentWinners.length > 6 && currentWinners.length <= 12,
+                'min-w-[140px] max-w-[160px]': currentWinners.length > 12 && currentWinners.length <= 20,
+                'min-w-[120px] max-w-[140px]': currentWinners.length > 20
+              }">
+              <div class="font-bold mb-1 break-words"
+                :class="{
+                  'text-3xl': currentWinners.length <= 6,
+                  'text-2xl': currentWinners.length > 6 && currentWinners.length <= 12,
+                  'text-xl': currentWinners.length > 12 && currentWinners.length <= 20,
+                  'text-lg': currentWinners.length > 20
+                }">{{ winner.name }}</div>
+              <div class="text-red-600 break-words"
+                :class="{
+                  'text-lg': currentWinners.length <= 6,
+                  'text-base': currentWinners.length > 6 && currentWinners.length <= 12,
+                  'text-sm': currentWinners.length > 12 && currentWinners.length <= 20,
+                  'text-xs': currentWinners.length > 20
+                }">{{ winner.department || '未知部门' }}</div>
             </div>
           </div>
         </div>
@@ -191,6 +213,9 @@
         </div>
       </div>
     </div>
+    
+    <!-- 底部导航栏 -->
+    <BottomNavigation />
   </div>
 </template>
 
@@ -199,6 +224,7 @@ import { ref, computed, onUnmounted, onMounted, nextTick } from 'vue';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { awardAPI, lotteryAPI, participantAPI } from '../api/index.js';
+import BottomNavigation from './BottomNavigation.vue';
 
 // 可编辑组织名称
 const organizationName = ref('山西省计算机软件学会');

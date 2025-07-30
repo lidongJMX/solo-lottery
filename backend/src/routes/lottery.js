@@ -165,57 +165,64 @@ async function buildLotteryPool(currentEpoch) {
   return [...neverWonParticipants, ...returnParticipants];
 }
 
-// 筛选符合条件的参与者
+// 筛选符合条件的参与者（优化版：合并数据库查询）
 async function filterEligibleParticipants(lotteryPool, award, currentEpoch) {
-  const eligible = [];
+  if (lotteryPool.length === 0) return [];
   
-  for (const participant of lotteryPool) {
-    // 获取参与者的中奖历史
-    const winHistory = await dbAll(`
-      SELECT w.*, a.level as award_level
-      FROM Winner w
-      JOIN Award a ON w.award_id = a.id
-      WHERE w.participant_id = ?
-    `, [participant.id]);
-    
-    const winCount = winHistory.length;
-    const highestAwardLevel = winHistory.length > 0 ? Math.min(...winHistory.map(w => w.award_level)) : 999;
+  const participantIds = lotteryPool.map(p => p.id);
+  const placeholders = participantIds.map(() => '?').join(',');
+  
+  // 优化：一次查询获取所有参与者的完整中奖信息
+  const participantWinInfo = await dbAll(`
+    SELECT 
+      p.id,
+      p.name,
+      p.department,
+      p.weight,
+      COALESCE(COUNT(w.id), 0) as win_count,
+      COALESCE(MIN(a.level), 999) as highest_award_level,
+      COALESCE(SUM(CASE WHEN w.epoch = ? THEN 1 ELSE 0 END), 0) as current_round_wins,
+      COALESCE(SUM(CASE WHEN w.award_id = ? THEN 1 ELSE 0 END), 0) as same_award_wins
+    FROM Participant p
+    LEFT JOIN Winner w ON p.id = w.participant_id
+    LEFT JOIN Award a ON w.award_id = a.id
+    WHERE p.id IN (${placeholders})
+    GROUP BY p.id, p.name, p.department, p.weight
+  `, [currentEpoch, award.id, ...participantIds]);
+  
+  // 在内存中筛选符合条件的参与者
+  const eligible = participantWinInfo.filter(participant => {
+    const winCount = participant.win_count || 0;
+    const highestAwardLevel = participant.highest_award_level || 999;
+    const currentRoundWins = participant.current_round_wins || 0;
+    const sameAwardWins = participant.same_award_wins || 0;
     
     // 检查总次数限制：最多中奖3次
     if (winCount >= 3) {
-      continue;
+      return false;
     }
     
     // 检查奖项限制：已获得一等奖、二等奖的员工，不能再次参与一等奖、二等奖的抽奖
     if (highestAwardLevel <= 2 && award.level <= 2) {
-      continue;
+      return false;
     }
     
     // 检查轮次限制：当轮已中奖的员工，不能在该轮次中再次中奖
-    const currentRoundWin = await dbGet(`
-      SELECT COUNT(*) as count FROM Winner 
-      WHERE participant_id = ? AND epoch = ?
-    `, [participant.id, currentEpoch]);
-    
-    if (currentRoundWin.count > 0) {
-      continue;
+    if (currentRoundWins > 0) {
+      return false;
     }
     
     // 检查同一奖项不能重复抽取
-    const sameAwardWin = await dbGet(`
-      SELECT COUNT(*) as count FROM Winner 
-      WHERE participant_id = ? AND award_id = ?
-    `, [participant.id, award.id]);
-    
-    if (sameAwardWin.count > 0) {
-      continue;
+    if (sameAwardWins > 0) {
+      return false;
     }
     
     // 添加概率权重信息
     participant.win_count = winCount;
     participant.highest_award_level = highestAwardLevel;
-    eligible.push(participant);
-  }
+    
+    return true;
+  });
   
   return eligible;
 }

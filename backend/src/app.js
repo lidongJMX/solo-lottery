@@ -10,6 +10,20 @@ import lotteryRoutes from './routes/lottery.js';
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// 性能监控中间件
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 1000) { // 记录超过1秒的慢请求
+      console.log(`慢请求警告: ${req.method} ${req.url} - ${duration}ms`);
+    }
+  });
+  
+  next();
+});
+
 // 中间件
 app.use(helmet());
 app.use(cors());
