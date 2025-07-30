@@ -283,7 +283,7 @@ router.get('/winners', async (req, res) => {
       JOIN Award pr ON w.award_id = pr.id
       ORDER BY w.draw_time DESC
     `);
-    
+    console.log('winners',winners)
     res.json(winners);
   } catch (error) {
     console.error('获取中奖记录失败:', error);
@@ -304,7 +304,8 @@ router.get('/winners/:awardId', async (req, res) => {
         p.department,
         pr.level as award_level,
         pr.name as award_name,
-        (pr.level || ' - ' || pr.name) as award
+        (pr.level || ' - ' || pr.name) as award,
+        w.epoch
       FROM Winner w
       JOIN Participant p ON w.participant_id = p.id
       JOIN Award pr ON w.award_id = pr.id

@@ -169,16 +169,16 @@
 
         <!-- 中奖者列表 -->
         <div class="relative z-10">
-          <div class="grid gap-6 place-items-center" :class="{
+          <div class="grid gap-6 place-items-center justify-items-center" :class="{
             'grid-cols-1': currentWinners.length <= 1,
             'grid-cols-2': currentWinners.length === 2,
             'grid-cols-3': currentWinners.length >= 3 && currentWinners.length <= 6,
             'grid-cols-4': currentWinners.length > 6
           }">
             <div v-for="(winner, index) in currentWinners" :key="index"
-              class="bg-yellow-400 text-red-800 px-8 py-4 rounded-2xl shadow-lg text-center">
-              <div class="text-3xl font-bold mb-2">{{ winner.name }}</div>
-              <div class="text-lg text-red-600">{{ winner.department || '未知部门' }}</div>
+              class="bg-yellow-400 text-red-800 px-8 py-4 rounded-2xl shadow-lg text-center min-w-[200px] w-full max-w-[280px]">
+              <div class="text-3xl font-bold mb-2 break-words">{{ winner.name }}</div>
+              <div class="text-lg text-red-600 break-words">{{ winner.department || '未知部门' }}</div>
             </div>
           </div>
         </div>
@@ -224,7 +224,7 @@ const awards = ref([]);
 const awardsLoading = ref(false);
 
 // 轮次信息
-const currentEpoch = ref(0);
+const currentEpoch = ref(1);
 const epochStatus = ref(1);
 
 // 获取奖项数据
@@ -385,8 +385,27 @@ const drawWinners = async () => {
       
       winners.value = [...winners.value, ...newWinners];
       
+      // 保存当前选中的奖项索引
+      const savedIndex = currentIndex.value;
+      const savedAwardId = currentAward.value.id;
+      
       // 重新获取奖项数据以更新剩余数量
       await fetchAwards();
+      
+      // 恢复之前选中的奖项
+      if (savedIndex >= 0 && savedIndex < awards.value.length) {
+        currentIndex.value = savedIndex;
+        currentAward.value = awards.value[savedIndex];
+        drawCount.value = currentAward.value?.draw_count || 1;
+      } else {
+        // 如果索引无效，尝试通过ID找到对应的奖项
+        const foundIndex = awards.value.findIndex(award => award.id === savedAwardId);
+        if (foundIndex !== -1) {
+          currentIndex.value = foundIndex;
+          currentAward.value = awards.value[foundIndex];
+          drawCount.value = currentAward.value?.draw_count || 1;
+        }
+      }
       
       return newWinners;
     } else {
@@ -587,9 +606,15 @@ const showWinners = async () => {
   }
   
   try {
+    // 调试信息：显示当前状态
+    console.log('=== showWinners 调试信息 ===');
+    console.log('currentAward:', currentAward.value);
+    console.log('currentEpoch:', currentEpoch.value);
+    console.log('showWinnerDialog初始值:', showWinnerDialog.value);
+
     // 获取当前轮次当前奖项的中奖者
     const winnersData = await lotteryAPI.getWinnersByAward(currentAward.value.id);
-    
+    console.log('winnersData',winnersData)
     if (winnersData && winnersData.length > 0) {
       // 筛选当前轮次的中奖者
       const currentRoundWinners = winnersData.filter(winner => winner.epoch === currentEpoch.value);
@@ -604,13 +629,16 @@ const showWinners = async () => {
           draw_time: winner.draw_time,
           epoch: winner.epoch
         }));
-        
         // 显示中奖弹窗
+        console.log('showWinnerDialog',showWinnerDialog.value)
         showWinnerDialog.value = true;
+        console.log('showWinnerDialog设置后:', showWinnerDialog.value);
       } else {
+        console.log('当前轮次无中奖者，currentEpoch:', currentEpoch.value);
         ElMessage.info(`第${currentEpoch.value}轮当前奖项暂无中奖者`);
       }
     } else {
+      console.log('该奖项暂无任何中奖者');
       ElMessage.info('当前奖项暂无中奖者');
     }
   } catch (error) {
