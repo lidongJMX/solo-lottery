@@ -146,10 +146,11 @@ async function buildLotteryPool(currentEpoch) {
   // 基础参与者：所有未中奖的员工
   const neverWonParticipants = await dbAll(`
     SELECT p.*, 0 as win_count, 0 as highest_award_level FROM Participant p
-    WHERE p.id NOT IN (SELECT DISTINCT participant_id FROM Winner)
+    WHERE p.has_won = 0
   `);
   
   // 返场参与者：从最近两轮的中奖者中随机抽取20%
+  const maxEpoch = Math.max(1, currentEpoch - 2);
   const recentWinners = await dbAll(`
     SELECT DISTINCT p.*, 
            COUNT(w.id) as win_count,
@@ -157,9 +158,9 @@ async function buildLotteryPool(currentEpoch) {
     FROM Participant p
     JOIN Winner w ON p.id = w.participant_id
     JOIN Award a ON w.award_id = a.id
-    WHERE w.epoch >= ? - 1
+    WHERE w.epoch < ? AND w.epoch >= ?
     GROUP BY p.id
-  `, [currentEpoch]);
+  `, [currentEpoch, maxEpoch]);
   
   // 随机选择20%的返场参与者
   const returnCount = Math.floor(recentWinners.length * 0.2);
@@ -173,7 +174,9 @@ async function buildLotteryPool(currentEpoch) {
 async function filterEligibleParticipants(lotteryPool, award, currentEpoch) {
   if (lotteryPool.length === 0) return [];
   
+  // 提取抽奖池中所有参与者的ID
   const participantIds = lotteryPool.map(p => p.id);
+  // 为SQL查询生成对应数量的占位符（?），用于IN子句
   const placeholders = participantIds.map(() => '?').join(',');
   
   // 优化：一次查询获取所有参与者的完整中奖信息
@@ -193,7 +196,7 @@ async function filterEligibleParticipants(lotteryPool, award, currentEpoch) {
     WHERE p.id IN (${placeholders})
     GROUP BY p.id, p.name, p.department, p.weight
   `, [currentEpoch, award.id, ...participantIds]);
-  
+  console.log('participantWinInfo', participantWinInfo);
   // 在内存中筛选符合条件的参与者
   const eligible = participantWinInfo.filter(participant => {
     const winCount = participant.win_count || 0;
@@ -350,7 +353,7 @@ router.post('/reset', async (req, res) => {
       },
       // 3. 重置所有参与者的中奖状态
       {
-        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = NULL, updatedAt = ?',
+        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = 100, updatedAt = ?',
         params: [currentTime]
       },
       // 4. 重置当前轮次状态
@@ -486,7 +489,7 @@ router.delete('/winners/:winnerId', async (req, res) => {
     if (participantWins.length === 0) {
       // 该参与者已无中奖记录，重置为未中奖状态
       transactionOperations.push({
-        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = NULL, updatedAt = ? WHERE id = ?',
+        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = 100, updatedAt = ? WHERE id = ?',
         params: [currentTime, winner.participant_id]
       });
     } else {
@@ -507,6 +510,121 @@ router.delete('/winners/:winnerId', async (req, res) => {
   } catch (error) {
     console.error('撤销中奖记录失败:', error);
     res.status(500).json({ error: '撤销中奖记录失败' });
+  }
+});
+
+// 获取统计分析数据
+router.get('/statistics', async (req, res) => {
+  try {
+    // 1. 基础统计数据
+    const totalParticipants = await dbGet('SELECT COUNT(*) as count FROM Participant');
+    const totalWinners = await dbGet('SELECT COUNT(DISTINCT participant_id) as count FROM Winner');
+    const totalDraws = await dbGet('SELECT COUNT(*) as count FROM Winner');
+    
+    // 2. 中奖次数分布
+    const winCountDistribution = await dbAll(`
+      SELECT 
+        COALESCE(win_count, 0) as win_count,
+        COUNT(*) as participant_count
+      FROM Participant 
+      GROUP BY win_count 
+      ORDER BY win_count
+    `);
+    
+    // 3. 奖项等级分布
+    const awardLevelDistribution = await dbAll(`
+      SELECT 
+        a.level,
+        a.name as award_name,
+        COUNT(w.id) as win_count
+      FROM Award a
+      LEFT JOIN Winner w ON a.id = w.award_id
+      GROUP BY a.id, a.level, a.name
+      ORDER BY a.level
+    `);
+    
+    // 4. 部门中奖分布
+    const departmentDistribution = await dbAll(`
+      SELECT 
+        COALESCE(p.department, '未知部门') as department,
+        COUNT(DISTINCT p.id) as total_participants,
+        COUNT(w.id) as total_wins,
+        COUNT(DISTINCT w.participant_id) as unique_winners
+      FROM Participant p
+      LEFT JOIN Winner w ON p.id = w.participant_id
+      GROUP BY p.department
+      ORDER BY total_wins DESC
+    `);
+    
+    // 5. 轮次中奖分布
+    const epochDistribution = await dbAll(`
+      SELECT 
+        w.epoch,
+        COUNT(*) as draw_count,
+        COUNT(DISTINCT w.participant_id) as unique_winners
+      FROM Winner w
+      GROUP BY w.epoch
+      ORDER BY w.epoch
+    `);
+    
+    // 6. 计算正态分布检验数据
+    const winCounts = winCountDistribution.map(item => {
+      return Array(item.participant_count).fill(item.win_count);
+    }).flat();
+    
+    // 计算基本统计量
+    const mean = winCounts.reduce((sum, count) => sum + count, 0) / winCounts.length;
+    const variance = winCounts.reduce((sum, count) => sum + Math.pow(count - mean, 2), 0) / winCounts.length;
+    const stdDev = Math.sqrt(variance);
+    
+    // 计算偏度和峰度
+    const skewness = winCounts.reduce((sum, count) => sum + Math.pow((count - mean) / stdDev, 3), 0) / winCounts.length;
+    const kurtosis = winCounts.reduce((sum, count) => sum + Math.pow((count - mean) / stdDev, 4), 0) / winCounts.length - 3;
+    
+    // 简单的正态性检验（基于偏度和峰度）
+    const isNormalDistribution = Math.abs(skewness) < 1 && Math.abs(kurtosis) < 1;
+    
+    // 7. 中奖概率分析
+    const winProbability = totalWinners.count / totalParticipants.count;
+    const averageWinsPerWinner = totalDraws.count / (totalWinners.count || 1);
+    
+    res.json({
+      basicStats: {
+        totalParticipants: totalParticipants.count,
+        totalWinners: totalWinners.count,
+        totalDraws: totalDraws.count,
+        winProbability: winProbability,
+        averageWinsPerWinner: averageWinsPerWinner
+      },
+      distributions: {
+        winCount: winCountDistribution,
+        awardLevel: awardLevelDistribution,
+        department: departmentDistribution,
+        epoch: epochDistribution
+      },
+      normalityTest: {
+        mean: mean,
+        variance: variance,
+        standardDeviation: stdDev,
+        skewness: skewness,
+        kurtosis: kurtosis,
+        isNormalDistribution: isNormalDistribution,
+        interpretation: {
+          skewnessLevel: Math.abs(skewness) < 0.5 ? '轻微偏斜' : Math.abs(skewness) < 1 ? '中度偏斜' : '严重偏斜',
+          kurtosisLevel: Math.abs(kurtosis) < 0.5 ? '接近正态' : Math.abs(kurtosis) < 1 ? '轻微偏离' : '严重偏离',
+          conclusion: isNormalDistribution ? '数据接近正态分布' : '数据偏离正态分布'
+        }
+      },
+      fairnessAnalysis: {
+        expectedWinsPerPerson: totalDraws.count / totalParticipants.count,
+        actualWinnerRatio: winProbability,
+        concentrationIndex: totalDraws.count / (totalWinners.count || 1), // 中奖集中度
+        fairnessScore: isNormalDistribution && winProbability > 0.1 ? '良好' : '需要关注'
+      }
+    });
+  } catch (error) {
+    console.error('获取统计数据失败:', error);
+    res.status(500).json({ error: '获取统计数据失败' });
   }
 });
 

@@ -226,6 +226,15 @@ import { ElMessage } from 'element-plus';
 import { awardAPI, lotteryAPI, participantAPI } from '../api/index.js';
 import BottomNavigation from './BottomNavigation.vue';
 
+// 音频文件引用
+const processAudio = new Audio(new URL('../assets/sound/process.wav', import.meta.url).href);
+const endAudio = new Audio(new URL('../assets/sound/end.wav', import.meta.url).href);
+
+// 设置音频属性
+processAudio.loop = true; // 抽奖过程音乐循环播放
+processAudio.volume = 0.6; // 设置音量
+endAudio.volume = 0.8; // 设置音量
+
 // 可编辑组织名称
 const organizationName = ref('山西省计算机软件学会');
 const isEditing = ref(false);
@@ -500,6 +509,16 @@ const startDraw = () => {
   showWinnerNames.value = true;
   currentWinners.value = [];
 
+  // 播放抽奖过程音乐
+  try {
+    processAudio.currentTime = 0; // 重置播放位置
+    processAudio.play().catch(error => {
+      console.warn('播放抽奖音乐失败:', error);
+    });
+  } catch (error) {
+    console.warn('播放抽奖音乐失败:', error);
+  }
+
   // 初始化滚动人名数组
   rollingNames.value = new Array(drawCount.value).fill('');
 
@@ -563,6 +582,14 @@ const stopDraw = () => {
 
 // 最终确定中奖者
 const finalizeDraw = async () => {
+  // 停止抽奖过程音乐
+  try {
+    processAudio.pause();
+    processAudio.currentTime = 0;
+  } catch (error) {
+    console.warn('停止抽奖音乐失败:', error);
+  }
+
   // 清除定时器
   if (rollingTimer.value) {
     clearTimeout(rollingTimer.value);
@@ -577,6 +604,16 @@ const finalizeDraw = async () => {
     const newWinners = await drawWinners();
     
     if (newWinners && newWinners.length > 0) {
+      // 播放结束音乐
+      try {
+        endAudio.currentTime = 0; // 重置播放位置
+        endAudio.play().catch(error => {
+          console.warn('播放结束音乐失败:', error);
+        });
+      } catch (error) {
+        console.warn('播放结束音乐失败:', error);
+      }
+
       // 更新当前中奖者列表
       currentWinners.value = newWinners;
       
@@ -623,6 +660,14 @@ onUnmounted(() => {
     clearTimeout(rollingTimer.value);
   }
   document.removeEventListener('keydown', handleKeyPress);
+  
+  // 停止所有音频播放
+  try {
+    processAudio.pause();
+    endAudio.pause();
+  } catch (error) {
+    console.warn('停止音频播放失败:', error);
+  }
 });
 
 const showWinners = async () => {

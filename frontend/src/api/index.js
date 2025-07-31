@@ -167,7 +167,7 @@ export const lotteryAPI = {
     return api.delete(`/lottery/winners/${winnerId}`)
   },
   
-  // 获取抽奖统计
+  // 获取统计数据
   getStatistics() {
     return api.get('/lottery/statistics')
   },

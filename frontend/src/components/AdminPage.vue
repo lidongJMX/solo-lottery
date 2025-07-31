@@ -75,7 +75,7 @@
               </div>
               <div class="stat-content">
                 <h3>总参与人数</h3>
-                <p class="stat-number">{{ statistics.totalParticipants }}</p>
+                <p class="stat-number">{{ statisticsData?.basicStats?.totalParticipants || statistics.totalParticipants }}</p>
               </div>
             </div>
             
@@ -95,7 +95,7 @@
               </div>
               <div class="stat-content">
                 <h3>中奖人数</h3>
-                <p class="stat-number">{{ statistics.totalWinners }}</p>
+                <p class="stat-number">{{ statisticsData?.basicStats?.totalWinners || statistics.totalWinners }}</p>
               </div>
             </div>
             
@@ -105,26 +105,121 @@
               </div>
               <div class="stat-content">
                 <h3>中奖率</h3>
-                <p class="stat-number">{{ winningRate }}%</p>
+                <p class="stat-number">{{ statisticsData?.basicStats?.winProbability ? (statisticsData.basicStats.winProbability * 100).toFixed(1) : winningRate }}%</p>
               </div>
             </div>
           </div>
 
-          <!-- 图表区域 -->
+          <!-- 统计分析区域 -->
+          <div class="statistics-section" v-if="statisticsData">
+            <div class="section-header">
+              <h3 class="section-title">统计分析</h3>
+              <el-button type="primary" @click="refreshStatistics" :loading="statisticsLoading">
+                <el-icon><RefreshLeft /></el-icon>
+                刷新数据
+              </el-button>
+            </div>
+            
+            <!-- 正态分布检验 -->
+            <div class="analysis-grid">
+              <div class="analysis-card">
+                <h4>正态分布检验</h4>
+                <div class="normality-test">
+                  <div class="test-result">
+                    <div class="result-status" :class="{ 'normal': statisticsData.normalityTest.isNormalDistribution, 'abnormal': !statisticsData.normalityTest.isNormalDistribution }">
+                      <el-icon v-if="statisticsData.normalityTest.isNormalDistribution"><Star /></el-icon>
+                      <el-icon v-else><Warning /></el-icon>
+                      <span>{{ statisticsData.normalityTest.interpretation.conclusion }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="test-details">
+                    <div class="detail-item">
+                      <span class="label">均值:</span>
+                      <span class="value">{{ statisticsData.normalityTest.mean.toFixed(3) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">标准差:</span>
+                      <span class="value">{{ statisticsData.normalityTest.standardDeviation.toFixed(3) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">偏度:</span>
+                      <span class="value">{{ statisticsData.normalityTest.skewness.toFixed(3) }} ({{ statisticsData.normalityTest.interpretation.skewnessLevel }})</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">峰度:</span>
+                      <span class="value">{{ statisticsData.normalityTest.kurtosis.toFixed(3) }} ({{ statisticsData.normalityTest.interpretation.kurtosisLevel }})</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 公平性分析 -->
+              <div class="analysis-card">
+                <h4>公平性分析</h4>
+                <div class="fairness-analysis">
+                  <div class="fairness-score" :class="statisticsData.fairnessAnalysis.fairnessScore === '良好' ? 'good' : 'warning'">
+                    <el-icon v-if="statisticsData.fairnessAnalysis.fairnessScore === '良好'"><Star /></el-icon>
+                    <el-icon v-else><Warning /></el-icon>
+                    <span>公平性评分: {{ statisticsData.fairnessAnalysis.fairnessScore }}</span>
+                  </div>
+                  
+                  <div class="fairness-details">
+                    <div class="detail-item">
+                      <span class="label">期望中奖次数/人:</span>
+                      <span class="value">{{ statisticsData.fairnessAnalysis.expectedWinsPerPerson.toFixed(3) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">实际中奖比例:</span>
+                      <span class="value">{{ (statisticsData.fairnessAnalysis.actualWinnerRatio * 100).toFixed(1) }}%</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">中奖集中度:</span>
+                      <span class="value">{{ statisticsData.fairnessAnalysis.concentrationIndex.toFixed(2) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分布图表区域 -->
           <div class="charts-section">
-            <div class="chart-card">
-              <h3>奖项分布统计</h3>
-              <div class="chart-placeholder">
-                <el-icon class="chart-icon"><Histogram /></el-icon>
-                <p>饼图：各等级奖项数量分布</p>
+            <div class="chart-card" v-if="statisticsData?.distributions?.winCount">
+              <h3>中奖次数分布</h3>
+              <div class="distribution-chart">
+                <div class="chart-bars">
+                  <div 
+                    v-for="item in statisticsData.distributions.winCount" 
+                    :key="item.win_count"
+                    class="bar-item"
+                  >
+                    <div 
+                      class="bar" 
+                      :style="{ height: (item.participant_count / Math.max(...statisticsData.distributions.winCount.map(i => i.participant_count)) * 100) + '%' }"
+                    ></div>
+                    <div class="bar-label">{{ item.win_count }}次</div>
+                    <div class="bar-value">{{ item.participant_count }}人</div>
+                  </div>
+                </div>
               </div>
             </div>
             
-            <div class="chart-card">
-              <h3>抽奖活动趋势</h3>
-              <div class="chart-placeholder">
-                <el-icon class="chart-icon"><Monitor /></el-icon>
-                <p>折线图：每日抽奖活动数量</p>
+            <div class="chart-card" v-if="statisticsData?.distributions?.department">
+              <h3>部门中奖分布</h3>
+              <div class="department-chart">
+                <div 
+                  v-for="dept in statisticsData.distributions.department.slice(0, 8)" 
+                  :key="dept.department"
+                  class="dept-item"
+                >
+                  <div class="dept-name">{{ dept.department }}</div>
+                  <div class="dept-stats">
+                    <span class="total">总人数: {{ dept.total_participants }}</span>
+                    <span class="winners">中奖: {{ dept.unique_winners }}</span>
+                    <span class="rate">中奖率: {{ dept.total_participants > 0 ? (dept.unique_winners / dept.total_participants * 100).toFixed(1) : 0 }}%</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -620,6 +715,10 @@ const statistics = ref({
   totalWinners: 23,
 })
 
+// 统计分析数据
+const statisticsData = ref(null)
+const statisticsLoading = ref(false)
+
 // 计算中奖率
 const winningRate = computed(() => {
   if (statistics.value.totalParticipants === 0) return 0
@@ -678,6 +777,30 @@ const fetchStatistics = async () => {
   } catch (error) {
     console.error('获取统计数据失败:', error)
   }
+}
+
+// 获取统计分析数据
+const fetchStatisticsData = async () => {
+  try {
+    statisticsLoading.value = true
+    const data = await lotteryAPI.getStatistics()
+    statisticsData.value = data
+    console.log('统计分析数据:', data)
+  } catch (error) {
+    console.error('获取统计分析数据失败:', error)
+    ElMessage.error('获取统计分析数据失败')
+  } finally {
+    statisticsLoading.value = false
+  }
+}
+
+// 刷新统计数据
+const refreshStatistics = async () => {
+  await Promise.all([
+    fetchStatistics(),
+    fetchStatisticsData()
+  ])
+  ElMessage.success('统计数据已刷新')
 }
 
 // 奖项数据
@@ -1433,6 +1556,7 @@ onMounted(async () => {
   await fetchAwards()
   await fetchLotteryRecords()
   await fetchStatistics()
+  await fetchStatisticsData()
 })
 </script>
 
@@ -1621,25 +1745,339 @@ onMounted(async () => {
   color: #303133;
 }
 
+/* 统计分析区域 */
+.statistics-section {
+  margin-bottom: 32px;
+}
+
+.statistics-section .section-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  border-radius: 12px 12px 0 0;
+  margin-bottom: 0;
+}
+
+.statistics-section .section-title {
+  color: white;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* 分析网格 */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  background: white;
+  padding: 24px;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 分析卡片 */
+.analysis-card {
+  background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+.analysis-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  border-color: #667eea;
+}
+
+.analysis-card h4 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analysis-card h4::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #667eea;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* 正态分布检验样式 */
+.normality-test {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.test-result {
+  text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+}
+
+.result-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.result-status.normal {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.result-status.abnormal {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.test-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.detail-item {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.detail-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.detail-item .label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-item .value {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* 公平性分析样式 */
+.fairness-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fairness-score {
+  text-align: center;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.fairness-score.good {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.fairness-score.warning {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.fairness-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
 /* 图表区域 */
 .charts-section {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 20px;
+  gap: 24px;
 }
 
 .chart-card {
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 1px solid #e2e8f0;
+}
+
+.chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .chart-card h3 {
   margin: 0 0 20px 0;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: #1e293b;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f5f9;
+  position: relative;
+}
+
+.chart-card h3::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 分布图表样式 */
+.distribution-chart {
+  padding: 16px 0;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  height: 200px;
+  padding: 0 8px;
+}
+
+.bar-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar {
+  width: 100%;
+  min-height: 4px;
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.bar:hover {
+  background: linear-gradient(180deg, #5a67d8 0%, #6b46c1 100%);
+  transform: scaleY(1.05);
+}
+
+.bar-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.bar-value {
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* 部门图表样式 */
+.department-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.dept-item {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.dept-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  transform: translateX(4px);
+}
+
+.dept-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.dept-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dept-stats span {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.dept-stats .total {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dept-stats .winners {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.dept-stats .rate {
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .chart-placeholder {
