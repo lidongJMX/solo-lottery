@@ -72,7 +72,9 @@ router.post('/draw', async (req, res) => {
           neverWonParticipants.some(nw => nw.id === p.id)
         );
         if (neverWonInPool.length > 0) {
-          const randomIndex = Math.floor(Math.random() * neverWonInPool.length);
+          const randomBytes = crypto.randomBytes(4);
+          const randomValue = randomBytes.readUInt32BE(0) / 0xFFFFFFFF;
+          const randomIndex = Math.floor(randomValue * neverWonInPool.length);
           selectedParticipant = neverWonInPool[randomIndex];
           const poolIndex = participantsCopy.findIndex(p => p.id === selectedParticipant.id);
           participantsCopy.splice(poolIndex, 1);
@@ -162,9 +164,18 @@ async function buildLotteryPool(currentEpoch) {
     GROUP BY p.id
   `, [currentEpoch, maxEpoch]);
   
-  // 随机选择20%的返场参与者
-  const returnCount = Math.floor(recentWinners.length * 0.2);
-  const shuffledRecentWinners = recentWinners.sort(() => Math.random() - 0.5);
+  // 改进：调整返场参与者比例为60%（从25%提升到60%，增加重复中奖机会）
+  const returnCount = Math.floor(recentWinners.length * 0.6);
+  
+  // 改进：使用crypto.randomBytes()进行高质量随机洗牌
+  const shuffledRecentWinners = [...recentWinners];
+  for (let i = shuffledRecentWinners.length - 1; i > 0; i--) {
+    const randomBytes = crypto.randomBytes(4);
+    const randomValue = randomBytes.readUInt32BE(0) / 0xFFFFFFFF;
+    const j = Math.floor(randomValue * (i + 1));
+    [shuffledRecentWinners[i], shuffledRecentWinners[j]] = [shuffledRecentWinners[j], shuffledRecentWinners[i]];
+  }
+  
   const returnParticipants = shuffledRecentWinners.slice(0, returnCount);
   
   return [...neverWonParticipants, ...returnParticipants];
@@ -243,28 +254,43 @@ function selectByProbability(participants) {
     return selected;
   }
   
-  // 计算权重：中奖次数越多，中奖等级越高，权重越低
+  // 统计各部门人数
+  const departmentCounts = {};
+  participants.forEach(p => {
+    const dept = p.department || '未分配部门';
+    departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
+  });
+  
+  // 计算权重：中奖次数越多，中奖等级越高，权重越低；部门人数越多，权重越高
   const weights = participants.map(p => {
     const winCount = p.win_count || 0;
     const highestLevel = p.highest_award_level || 999;
+    const department = p.department || '未分配部门';
+    const departmentSize = departmentCounts[department];
     
     // 基础权重
     let weight = 100;
     
-    // 中奖次数影响：每次中奖减少30%权重
-    weight *= Math.pow(0.7, winCount);
+    // 改进：调整权重影响系数到0.98（减少对中奖历史的惩罚，增加重复中奖概率）
+    weight *= Math.pow(0.98, winCount);
     
     // 中奖等级影响：等级越高（数值越小）权重越低
     if (highestLevel <= 3) {
       weight *= Math.pow(0.5, 4 - highestLevel); // 一等奖权重最低
     }
     
+    // 部门人数影响：部门人数越多，权重越高（使用对数函数避免权重差异过大）
+    const departmentBonus = 1 + Math.log10(departmentSize) * 0.1; // 对数增长，系数0.1控制影响程度，保持适度差异
+    weight *= departmentBonus;
+    
     return Math.max(weight, 1); // 确保最小权重为1
   });
   
-  // 加权随机选择
+  // 改进：使用crypto.randomBytes()进行高质量随机选择
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-  let random = Math.random() * totalWeight;
+  const randomBytes = crypto.randomBytes(4);
+  const randomValue = randomBytes.readUInt32BE(0) / 0xFFFFFFFF;
+  let random = randomValue * totalWeight;
   
   for (let i = 0; i < participants.length; i++) {
     random -= weights[i];
@@ -587,6 +613,9 @@ router.get('/statistics', async (req, res) => {
     // 7. 中奖概率分析
     const winProbability = totalWinners.count / totalParticipants.count;
     const averageWinsPerWinner = totalDraws.count / (totalWinners.count || 1);
+
+    // 8. 为图表生成数据点
+    const dataPoints = winCountDistribution.map(item => [item.win_count, item.participant_count]);
     
     res.json({
       basicStats: {
@@ -609,6 +638,7 @@ router.get('/statistics', async (req, res) => {
         skewness: skewness,
         kurtosis: kurtosis,
         isNormalDistribution: isNormalDistribution,
+        dataPoints: dataPoints, // 添加数据点
         interpretation: {
           skewnessLevel: Math.abs(skewness) < 0.5 ? '轻微偏斜' : Math.abs(skewness) < 1 ? '中度偏斜' : '严重偏斜',
           kurtosisLevel: Math.abs(kurtosis) < 0.5 ? '接近正态' : Math.abs(kurtosis) < 1 ? '轻微偏离' : '严重偏离',

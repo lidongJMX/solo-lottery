@@ -217,32 +217,32 @@ export async function initDatabase() {
     if (tableCounts.Award === 0) {
       const defaultAwards = [
         {
-          name: '小天鹅 LittleSwan 洗烘套装',
-          description: '一等奖：高端洗烘套装，让生活更便捷',
-          count: 1,
-          remaining_count: 1,
+          name: '一等奖',
+          description: '小天鹅洗衣机',
+          count: 50,
+          remaining_count: 50,
           level: 1,
-          draw_count: 1,
+          draw_count: 5,
           createdAt: currentTime,
           updatedAt: currentTime
         },
         {
-          name: '戴森吸尘器',
-          description: '二等奖：高性能无线吸尘器，清洁好帮手',
-          count: 2,
-          remaining_count: 2,
+          name: '二等奖',
+          description: '戴森吹风机',
+          count: 100,
+          remaining_count: 100,
           level: 2,
-          draw_count: 1,
+          draw_count: 10,
           createdAt: currentTime,
           updatedAt: currentTime
         },
         {
-          name: '华为智能手表',
-          description: '三等奖：智能运动手表，健康生活伴侣',
-          count: 5,
-          remaining_count: 5,
+          name: '三等奖',
+          description: '智能运动手表，健康生活伴侣',
+          count: 150,
+          remaining_count: 150,
           level: 3,
-          draw_count: 1,
+          draw_count: 15,
           createdAt: currentTime,
           updatedAt: currentTime
         }

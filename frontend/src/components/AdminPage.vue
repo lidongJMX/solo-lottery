@@ -126,29 +126,30 @@
                 <h4>正态分布检验</h4>
                 <div class="normality-test">
                   <div class="test-result">
-                    <div class="result-status" :class="{ 'normal': statisticsData.normalityTest.isNormalDistribution, 'abnormal': !statisticsData.normalityTest.isNormalDistribution }">
-                      <el-icon v-if="statisticsData.normalityTest.isNormalDistribution"><Star /></el-icon>
+                    <div ref="normalityChart" style="width: 100%; height: 250px;"></div>
+                    <div class="result-status" :class="{ 'normal': statisticsData.normalityTest?.isNormalDistribution, 'abnormal': !statisticsData.normalityTest?.isNormalDistribution }">
+                      <el-icon v-if="statisticsData.normalityTest?.isNormalDistribution"><Star /></el-icon>
                       <el-icon v-else><Warning /></el-icon>
-                      <span>{{ statisticsData.normalityTest.interpretation.conclusion }}</span>
+                      <span>{{ statisticsData.normalityTest?.interpretation?.conclusion || '数据加载中...' }}</span>
                     </div>
                   </div>
                   
                   <div class="test-details">
                     <div class="detail-item">
                       <span class="label">均值:</span>
-                      <span class="value">{{ statisticsData.normalityTest.mean.toFixed(3) }}</span>
+                      <span class="value">{{ statisticsData.normalityTest?.mean?.toFixed(3) || 'N/A' }}</span>
                     </div>
                     <div class="detail-item">
                       <span class="label">标准差:</span>
-                      <span class="value">{{ statisticsData.normalityTest.standardDeviation.toFixed(3) }}</span>
+                      <span class="value">{{ statisticsData.normalityTest?.standardDeviation?.toFixed(3) || 'N/A' }}</span>
                     </div>
                     <div class="detail-item">
                       <span class="label">偏度:</span>
-                      <span class="value">{{ statisticsData.normalityTest.skewness.toFixed(3) }} ({{ statisticsData.normalityTest.interpretation.skewnessLevel }})</span>
+                      <span class="value">{{ statisticsData.normalityTest?.skewness?.toFixed(3) || 'N/A' }} ({{ statisticsData.normalityTest?.interpretation?.skewnessLevel || 'N/A' }})</span>
                     </div>
                     <div class="detail-item">
                       <span class="label">峰度:</span>
-                      <span class="value">{{ statisticsData.normalityTest.kurtosis.toFixed(3) }} ({{ statisticsData.normalityTest.interpretation.kurtosisLevel }})</span>
+                      <span class="value">{{ statisticsData.normalityTest?.kurtosis?.toFixed(3) || 'N/A' }} ({{ statisticsData.normalityTest?.interpretation?.kurtosisLevel || 'N/A' }})</span>
                     </div>
                   </div>
                 </div>
@@ -158,24 +159,24 @@
               <div class="analysis-card">
                 <h4>公平性分析</h4>
                 <div class="fairness-analysis">
-                  <div class="fairness-score" :class="statisticsData.fairnessAnalysis.fairnessScore === '良好' ? 'good' : 'warning'">
-                    <el-icon v-if="statisticsData.fairnessAnalysis.fairnessScore === '良好'"><Star /></el-icon>
+                  <div class="fairness-score" :class="statisticsData.fairnessAnalysis?.fairnessScore === '良好' ? 'good' : 'warning'">
+                    <el-icon v-if="statisticsData.fairnessAnalysis?.fairnessScore === '良好'"><Star /></el-icon>
                     <el-icon v-else><Warning /></el-icon>
-                    <span>公平性评分: {{ statisticsData.fairnessAnalysis.fairnessScore }}</span>
+                    <span>公平性评分: {{ statisticsData.fairnessAnalysis?.fairnessScore || '数据加载中...' }}</span>
                   </div>
                   
                   <div class="fairness-details">
                     <div class="detail-item">
                       <span class="label">期望中奖次数/人:</span>
-                      <span class="value">{{ statisticsData.fairnessAnalysis.expectedWinsPerPerson.toFixed(3) }}</span>
+                      <span class="value">{{ statisticsData.fairnessAnalysis?.expectedWinsPerPerson?.toFixed(3) || 'N/A' }}</span>
                     </div>
                     <div class="detail-item">
                       <span class="label">实际中奖比例:</span>
-                      <span class="value">{{ (statisticsData.fairnessAnalysis.actualWinnerRatio * 100).toFixed(1) }}%</span>
+                      <span class="value">{{ statisticsData.fairnessAnalysis?.actualWinnerRatio ? (statisticsData.fairnessAnalysis.actualWinnerRatio * 100).toFixed(1) : 'N/A' }}%</span>
                     </div>
                     <div class="detail-item">
                       <span class="label">中奖集中度:</span>
-                      <span class="value">{{ statisticsData.fairnessAnalysis.concentrationIndex.toFixed(2) }}</span>
+                      <span class="value">{{ statisticsData.fairnessAnalysis?.concentrationIndex?.toFixed(2) || 'N/A' }}</span>
                     </div>
                   </div>
                 </div>
@@ -190,13 +191,13 @@
               <div class="distribution-chart">
                 <div class="chart-bars">
                   <div 
-                    v-for="item in statisticsData.distributions.winCount" 
+                    v-for="item in (statisticsData?.distributions?.winCount || [])" 
                     :key="item.win_count"
                     class="bar-item"
                   >
                     <div 
                       class="bar" 
-                      :style="{ height: (item.participant_count / Math.max(...statisticsData.distributions.winCount.map(i => i.participant_count)) * 100) + '%' }"
+                      :style="{ height: statisticsData?.distributions?.winCount ? (item.participant_count / Math.max(...statisticsData.distributions.winCount.map(i => i.participant_count)) * 100) + '%' : '0%' }"
                     ></div>
                     <div class="bar-label">{{ item.win_count }}次</div>
                     <div class="bar-value">{{ item.participant_count }}人</div>
@@ -209,7 +210,7 @@
               <h3>部门中奖分布</h3>
               <div class="department-chart">
                 <div 
-                  v-for="dept in statisticsData.distributions.department.slice(0, 8)" 
+                  v-for="dept in (statisticsData?.distributions?.department || []).slice(0, 8)" 
                   :key="dept.department"
                   class="dept-item"
                 >
@@ -669,7 +670,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import {
   Setting,
   User,
@@ -694,6 +695,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { participantAPI, awardAPI, lotteryAPI } from '../api/index.js'
+import * as echarts from 'echarts'
 
 // 响应式数据
 const activeMenu = ref('dashboard')
@@ -718,6 +720,8 @@ const statistics = ref({
 // 统计分析数据
 const statisticsData = ref(null)
 const statisticsLoading = ref(false)
+const normalityChart = ref(null)
+let chartInstance = null
 
 // 计算中奖率
 const winningRate = computed(() => {
@@ -794,12 +798,93 @@ const fetchStatisticsData = async () => {
   }
 }
 
+// 初始化正态分布图表
+const initNormalityChart = () => {
+  if (chartInstance) {
+    chartInstance.dispose();
+  }
+  if (!normalityChart.value || !statisticsData.value?.normalityTest) return;
+
+  chartInstance = echarts.init(normalityChart.value);
+  const { mean, standardDeviation, dataPoints } = statisticsData.value.normalityTest;
+
+  const generateNormalDistributionData = (mean, stdDev, count) => {
+    const data = [];
+    for (let i = 0; i < count; i++) {
+      const x = mean - 3 * stdDev + (6 * stdDev * i) / (count - 1);
+      const y = (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2));
+      data.push([x, y]);
+    }
+    return data;
+  };
+
+  const normalCurve = generateNormalDistributionData(mean, standardDeviation, 100);
+
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    legend: {
+      data: ['实际分布', '正态分布曲线']
+    },
+    xAxis: {
+      type: 'value',
+      name: '中奖次数',
+      nameLocation: 'middle',
+      nameGap: 30
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '人数',
+        position: 'left'
+      },
+      {
+        type: 'value',
+        name: '概率密度',
+        position: 'right'
+      }
+    ],
+    series: [
+      {
+        name: '实际分布',
+        type: 'bar',
+        data: dataPoints,
+        itemStyle: {
+          color: '#409EFF'
+        },
+        barWidth: '60%'
+      },
+      {
+        name: '正态分布曲线',
+        type: 'line',
+        yAxisIndex: 1,
+        smooth: true,
+        data: normalCurve,
+        itemStyle: {
+          color: '#E6A23C'
+        },
+        lineStyle: {
+          width: 2
+        }
+      }
+    ]
+  };
+
+  chartInstance.setOption(option);
+};
+
 // 刷新统计数据
 const refreshStatistics = async () => {
   await Promise.all([
     fetchStatistics(),
     fetchStatisticsData()
   ])
+  await nextTick();
+  initNormalityChart();
   ElMessage.success('统计数据已刷新')
 }
 
@@ -1557,6 +1642,8 @@ onMounted(async () => {
   await fetchLotteryRecords()
   await fetchStatistics()
   await fetchStatisticsData()
+  await nextTick()
+  initNormalityChart()
 })
 </script>
 
