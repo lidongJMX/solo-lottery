@@ -93,7 +93,7 @@ router.post('/', async (req, res) => {
     const results = await dbTransaction([
       {
         sql: 'INSERT INTO Participant (name, user_id, department, phone, email, weight, has_won, win_count, high_award_level, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        params: [name, null, department || null, phone || null, email || null, 1.0, 0, 0, 100, currentTime, currentTime]
+        params: [name, null, department || null, phone || null, email || null, 100, 0, 0, 100, currentTime, currentTime]
       }
     ]);
 

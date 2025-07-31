@@ -129,7 +129,7 @@ export async function initDatabase() {
         "department" VARCHAR(255),
         "phone" VARCHAR(255),
         "email" VARCHAR(255),
-        "weight" FLOAT NOT NULL DEFAULT '1',
+        "weight" FLOAT NOT NULL DEFAULT '100',
         "has_won" TINYINT(1) NOT NULL DEFAULT 0,
         "win_count" INTEGER NOT NULL DEFAULT 0,
         "high_award_level" INTEGER NOT NULL DEFAULT 100,
@@ -212,7 +212,7 @@ export async function initDatabase() {
     } else {
       console.log('Epoch表中已有数据，跳过默认数据插入');
     }
-
+ 
     // 检查Award表是否有数据
     if (tableCounts.Award === 0) {
       const defaultAwards = [
@@ -282,7 +282,7 @@ export async function initDatabase() {
       const participantValues = [];
       
       for (const name of defaultParticipants) {
-        participantValues.push(name, null, '技术部', 1.0, 0, 0, 100, currentTime, currentTime);
+        participantValues.push(name, null, '技术部', 100, 0, 0, 100, currentTime, currentTime);
       }
       
       await dbRun(

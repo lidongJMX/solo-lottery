@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { dbAll, dbGet, dbRun, dbTransaction } from '../database/init.js';
 
 const router = express.Router();
@@ -275,12 +276,12 @@ function selectByProbability(participants) {
     weight *= Math.pow(0.98, winCount);
     
     // 中奖等级影响：等级越高（数值越小）权重越低
-    if (highestLevel <= 3) {
+    if (highestLevel <= 2) {
       weight *= Math.pow(0.5, 4 - highestLevel); // 一等奖权重最低
     }
     
     // 部门人数影响：部门人数越多，权重越高（使用对数函数避免权重差异过大）
-    const departmentBonus = 1 + Math.log10(departmentSize) * 0.1; // 对数增长，系数0.1控制影响程度，保持适度差异
+    const departmentBonus = 1 + Math.log10(departmentSize) * 0.3; // 对数增长，系数0.1控制影响程度，保持适度差异
     weight *= departmentBonus;
     
     return Math.max(weight, 1); // 确保最小权重为1
@@ -379,7 +380,7 @@ router.post('/reset', async (req, res) => {
       },
       // 3. 重置所有参与者的中奖状态
       {
-        sql: 'UPDATE Participant SET has_won = 0, win_count = 0, high_award_level = 100, updatedAt = ?',
+        sql: 'UPDATE Participant SET weight = 100, has_won = 0, win_count = 0, high_award_level = 100, updatedAt = ?',
         params: [currentTime]
       },
       // 4. 重置当前轮次状态
