@@ -461,6 +461,86 @@
             </div>
           </div>
 
+          <!-- 多次中奖控制设置 -->
+          <div class="settings-section">
+            <h3 class="settings-section-title">
+              <el-icon><MagicStick /></el-icon>
+              多次中奖控制
+            </h3>
+            <div class="settings-form">
+              <el-form :model="multiWinConfig" label-width="150px">
+                <el-form-item label="启用控制">
+                  <el-switch v-model="multiWinConfig.enabled" />
+                  <span class="form-help">启用后将按照下方配置控制多次中奖比例和间隔</span>
+                </el-form-item>
+                
+                <el-form-item label="三次中奖者比例" v-if="multiWinConfig.enabled">
+                  <el-input-number 
+                    v-model="multiWinConfig.threeWinPercentage" 
+                    :min="0" 
+                    :max="100" 
+                    :step="1" 
+                    controls-position="right"
+                  />
+                  <span class="form-help">%（建议5%）</span>
+                </el-form-item>
+                
+                <el-form-item label="二次中奖者比例" v-if="multiWinConfig.enabled">
+                  <el-input-number 
+                    v-model="multiWinConfig.twoWinPercentage" 
+                    :min="0" 
+                    :max="100" 
+                    :step="1" 
+                    controls-position="right"
+                  />
+                  <span class="form-help">%（建议10%）</span>
+                </el-form-item>
+                
+                <el-form-item label="最小轮次间隔" v-if="multiWinConfig.enabled">
+                  <el-input-number 
+                    v-model="multiWinConfig.minEpochInterval" 
+                    :min="1" 
+                    :max="10" 
+                    :step="1" 
+                    controls-position="right"
+                  />
+                  <span class="form-help">轮（多次中奖者再次中奖的最小间隔轮次）</span>
+                </el-form-item>
+                
+                <el-form-item v-if="multiWinConfig.enabled">
+                  <el-button type="primary" @click="saveMultiWinConfig" :loading="multiWinConfigLoading">
+                    保存多次中奖控制配置
+                  </el-button>
+                  <el-button @click="loadMultiWinConfig">
+                    重置
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+            
+            <!-- 多次中奖统计信息 -->
+            <div class="multi-win-stats" v-if="multiWinConfig.enabled">
+              <h4>当前多次中奖统计</h4>
+              <div class="stats-row" v-if="multiWinStats">
+                <div class="stat-item">
+                  <span class="label">三次中奖者：</span>
+                  <span class="value">{{ multiWinStats.threeWinCount || 0 }}人 ({{ ((multiWinStats.threeWinCount || 0) / (multiWinStats.totalParticipants || 1) * 100).toFixed(1) }}%)</span>
+                </div>
+                <div class="stat-item">
+                  <span class="label">二次中奖者：</span>
+                  <span class="value">{{ multiWinStats.twoWinCount || 0 }}人 ({{ ((multiWinStats.twoWinCount || 0) / (multiWinStats.totalParticipants || 1) * 100).toFixed(1) }}%)</span>
+                </div>
+                <div class="stat-item">
+                  <span class="label">一次中奖者：</span>
+                  <span class="value">{{ multiWinStats.oneWinCount || 0 }}人 ({{ ((multiWinStats.oneWinCount || 0) / (multiWinStats.totalParticipants || 1) * 100).toFixed(1) }}%)</span>
+                </div>
+              </div>
+              <el-button type="info" size="small" @click="loadMultiWinStats" :loading="multiWinStatsLoading">
+                刷新统计
+              </el-button>
+            </div>
+          </div>
+
           <!-- 数据管理 -->
           <div class="settings-section danger-section">
             <h3 class="settings-section-title danger-title">
@@ -984,6 +1064,18 @@ const settings = ref({
   animationDuration: 3000,
   autoSave: true
 })
+
+// 多次中奖控制配置
+const multiWinConfig = ref({
+  enabled: true,
+  threeWinPercentage: 5,
+  twoWinPercentage: 10,
+  minEpochInterval: 3
+})
+
+const multiWinConfigLoading = ref(false)
+const multiWinStats = ref(null)
+const multiWinStatsLoading = ref(false)
 
 // 新奖项表单
 const newAward = ref({
@@ -1563,6 +1655,75 @@ const resetSettings = () => {
   ElMessage.success('设置已重置')
 }
 
+// 多次中奖控制相关方法
+const loadMultiWinConfig = async () => {
+  try {
+    const response = await fetch('/api/lottery/multi-win-config')
+    if (response.ok) {
+      const result = await response.json()
+      const config = result.config || result
+      multiWinConfig.value = {
+        enabled: config.enabled === 1 || config.enabled === true,
+        threeWinPercentage: config.threeWinPercentage,
+        twoWinPercentage: config.twoWinPercentage,
+        minEpochInterval: config.minEpochInterval
+      }
+    }
+  } catch (error) {
+    console.error('加载多次中奖控制配置失败:', error)
+    ElMessage.error('加载配置失败')
+  }
+}
+
+const saveMultiWinConfig = async () => {
+  try {
+    multiWinConfigLoading.value = true
+    const response = await fetch('/api/lottery/multi-win-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        enabled: multiWinConfig.value.enabled ? 1 : 0,
+        threeWinPercentage: multiWinConfig.value.threeWinPercentage,
+        twoWinPercentage: multiWinConfig.value.twoWinPercentage,
+        minEpochInterval: multiWinConfig.value.minEpochInterval
+      })
+    })
+    
+    if (response.ok) {
+      ElMessage.success('多次中奖控制配置保存成功')
+      // 刷新统计信息
+      if (multiWinConfig.value.enabled) {
+        loadMultiWinStats()
+      }
+    } else {
+      const error = await response.json()
+      ElMessage.error(error.message || '保存配置失败')
+    }
+  } catch (error) {
+    console.error('保存多次中奖控制配置失败:', error)
+    ElMessage.error('保存配置失败')
+  } finally {
+    multiWinConfigLoading.value = false
+  }
+}
+
+const loadMultiWinStats = async () => {
+  try {
+    multiWinStatsLoading.value = true
+    const response = await fetch('/api/lottery/multi-win-stats')
+    if (response.ok) {
+      multiWinStats.value = await response.json()
+    }
+  } catch (error) {
+    console.error('加载多次中奖统计失败:', error)
+    ElMessage.error('加载统计信息失败')
+  } finally {
+    multiWinStatsLoading.value = false
+  }
+}
+
 // 重置抽奖数据
 const resetLotteryData = async () => {
   try {
@@ -1642,6 +1803,7 @@ onMounted(async () => {
   await fetchLotteryRecords()
   await fetchStatistics()
   await fetchStatisticsData()
+  await loadMultiWinConfig()
   await nextTick()
   initNormalityChart()
 })

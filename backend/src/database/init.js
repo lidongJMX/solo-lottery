@@ -153,6 +153,19 @@ export async function initDatabase() {
       )
     `);
 
+    // 多次中奖控制配置表：存储多次中奖控制策略的配置参数
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS "MultiWinConfig" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "threeWinPercentage" INTEGER NOT NULL DEFAULT 5,
+        "twoWinPercentage" INTEGER NOT NULL DEFAULT 10,
+        "minEpochInterval" INTEGER NOT NULL DEFAULT 3,
+        "enabled" TINYINT(1) NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+
     // 启用外键约束检查
     await dbRun('PRAGMA foreign_keys = true');
 
@@ -170,6 +183,8 @@ export async function initDatabase() {
       SELECT 'Participant' as table_name, COUNT(*) as count FROM "Participant"
       UNION ALL
       SELECT 'Winner' as table_name, COUNT(*) as count FROM "Winner"
+      UNION ALL
+      SELECT 'MultiWinConfig' as table_name, COUNT(*) as count FROM "MultiWinConfig"
     `);
 
     const tableCounts = {};
@@ -300,8 +315,17 @@ export async function initDatabase() {
     } else {
       console.log('Winner表中已有数据');
     }
-
-
+    
+    // 检查MultiWinConfig表是否有数据
+    if (tableCounts.MultiWinConfig === 0) {
+      await dbRun(
+        `INSERT INTO "MultiWinConfig" ("threeWinPercentage", "twoWinPercentage", "minEpochInterval", "enabled", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?)`,
+        [5, 10, 3, 1, currentTime, currentTime]
+      );
+      console.log('默认多次中奖控制配置插入完成');
+    } else {
+      console.log('MultiWinConfig表中已有数据，跳过默认数据插入');
+    }
 
     console.log('数据库表创建成功，默认数据插入完成');
   } catch (error) {
