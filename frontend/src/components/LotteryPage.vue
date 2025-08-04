@@ -262,6 +262,11 @@ const awardsLoading = ref(false);
 const currentEpoch = ref(1);
 const epochStatus = ref(1);
 
+// 系统配置
+const systemConfig = ref({
+  winnerDisplayDelay: 500 // 默认值
+});
+
 // 获取奖项数据
 const fetchAwards = async () => {
   try {
@@ -329,6 +334,50 @@ const fetchAwards = async () => {
   }
 };
 
+// 获取系统配置
+const fetchSystemConfig = async () => {
+  try {
+    const response = await fetch('/api/lottery/system-config');
+    
+    // 检查响应状态
+    if (!response.ok) {
+      console.warn(`API响应状态: ${response.status}`);
+      systemConfig.value = { winnerDisplayDelay: 500 };
+      return;
+    }
+    
+    // 检查响应内容类型
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('API响应不是JSON格式');
+      systemConfig.value = { winnerDisplayDelay: 500 };
+      return;
+    }
+    
+    const text = await response.text();
+    if (!text.trim()) {
+      console.warn('API响应为空');
+      systemConfig.value = { winnerDisplayDelay: 500 };
+      return;
+    }
+    
+    const data = JSON.parse(text);
+    if (data.success && data.config) {
+      systemConfig.value = {
+        winnerDisplayDelay: data.config.winnerDisplayDelay || 500
+      };
+    } else {
+      systemConfig.value = { winnerDisplayDelay: 500 };
+    }
+  } catch (error) {
+    console.error('获取系统配置失败:', error);
+    // 使用默认配置
+    systemConfig.value = {
+      winnerDisplayDelay: 500
+    };
+  }
+};
+
 const currentIndex = ref(0);
 const currentAward = ref({});
 const dialogVisible = ref(false);
@@ -346,8 +395,15 @@ const rollingTimer = ref(null);
 const showWinnerDialog = ref(false);
 const isSlowingDown = ref(false);
 const slowDownStartTime = ref(0);
-const slowDownDuration = 2000; // 3秒减速时间
-
+// 减速时间根据配置动态计算
+const getSlowDownDuration = () => {
+  // 如果设置为立即显示，则立即停止（100ms最小减速时间）
+  if (systemConfig.value.winnerDisplayDelay === 0) {
+    return 100;
+  }
+  // 否则使用配置的延迟时间作为减速时间
+  return systemConfig.value.winnerDisplayDelay;
+};
 // 背景图片
 const backgroundImage = new URL('../assets/background/c.png', import.meta.url).href;
 
@@ -552,7 +608,7 @@ const startRolling = () => {
     if (isSlowingDown.value) {
       // 计算减速进度 (0-1)
       const elapsed = Date.now() - slowDownStartTime.value;
-      const progress = Math.min(elapsed / slowDownDuration, 1);
+      const progress = Math.min(elapsed / getSlowDownDuration(), 1);
       
       // 使用缓动函数实现平滑减速
       const easeOut = 1 - Math.pow(1 - progress, 3);
@@ -618,9 +674,13 @@ const finalizeDraw = async () => {
       currentWinners.value = newWinners;
       
       // 显示中奖弹窗
-      setTimeout(() => {
+      // 如果设置为立即显示，则不再有额外延迟（因为减速时间已经包含了延迟）
+      if (systemConfig.value.winnerDisplayDelay === 0) {
         showWinnerDialog.value = true;
-      }, 500);
+      } else {
+        // 对于非立即显示，减速时间就是延迟时间，所以立即显示
+        showWinnerDialog.value = true;
+      }
     } else {
       ElMessage.error('抽奖失败，请重试');
     }
@@ -765,6 +825,7 @@ onMounted(async () => {
   await fetchAwards();
   await fetchParticipants();
   await fetchLotteryStatus();
+  await fetchSystemConfig();
 });
 </script>
 

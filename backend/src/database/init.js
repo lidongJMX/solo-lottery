@@ -166,6 +166,16 @@ export async function initDatabase() {
       )
     `);
 
+    // 系统配置表：存储系统通用设置
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS "SystemConfig" (
+        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "winnerDisplayDelay" INTEGER NOT NULL DEFAULT 500,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+
     // 启用外键约束检查
     await dbRun('PRAGMA foreign_keys = true');
 
@@ -185,6 +195,8 @@ export async function initDatabase() {
       SELECT 'Winner' as table_name, COUNT(*) as count FROM "Winner"
       UNION ALL
       SELECT 'MultiWinConfig' as table_name, COUNT(*) as count FROM "MultiWinConfig"
+      UNION ALL
+      SELECT 'SystemConfig' as table_name, COUNT(*) as count FROM "SystemConfig"
     `);
 
     const tableCounts = {};
@@ -325,6 +337,17 @@ export async function initDatabase() {
       console.log('默认多次中奖控制配置插入完成');
     } else {
       console.log('MultiWinConfig表中已有数据，跳过默认数据插入');
+    }
+    
+    // 检查SystemConfig表是否有数据
+    if (tableCounts.SystemConfig === 0) {
+      await dbRun(
+        `INSERT INTO "SystemConfig" ("winnerDisplayDelay", "createdAt", "updatedAt") VALUES (?, ?, ?)`,
+        [500, currentTime, currentTime]
+      );
+      console.log('默认系统配置插入完成');
+    } else {
+      console.log('SystemConfig表中已有数据，跳过默认数据插入');
     }
 
     console.log('数据库表创建成功，默认数据插入完成');

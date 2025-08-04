@@ -932,4 +932,67 @@ router.get('/multi-win-stats', async (req, res) => {
   }
 });
 
+// 获取系统配置
+router.get('/system-config', async (req, res) => {
+  try {
+    const config = await dbGet('SELECT * FROM SystemConfig LIMIT 1');
+    
+    const defaultConfig = {
+      winnerDisplayDelay: 500
+    };
+    
+    const responseConfig = config || defaultConfig;
+    
+    res.json({
+      success: true,
+      config: responseConfig
+    });
+  } catch (error) {
+    console.error('获取系统配置失败:', error);
+    res.status(500).json({ error: '获取系统配置失败' });
+  }
+});
+
+// 更新系统配置
+router.post('/system-config', async (req, res) => {
+  try {
+    const { winnerDisplayDelay } = req.body;
+    
+    // 验证输入
+    if (typeof winnerDisplayDelay !== 'number' || winnerDisplayDelay < 0) {
+      return res.status(400).json({ error: '中奖者显示延迟必须是非负数' });
+    }
+    
+    const currentTime = new Date().toISOString();
+    
+    // 检查是否已存在配置
+    const existingConfig = await dbGet('SELECT * FROM SystemConfig LIMIT 1');
+    
+    if (existingConfig) {
+      // 更新现有配置
+      await dbRun(
+        'UPDATE SystemConfig SET winnerDisplayDelay = ?, updatedAt = ? WHERE id = ?',
+        [winnerDisplayDelay, currentTime, existingConfig.id]
+      );
+    } else {
+      // 插入新配置
+      await dbRun(
+        'INSERT INTO SystemConfig (winnerDisplayDelay, createdAt, updatedAt) VALUES (?, ?, ?)',
+        [winnerDisplayDelay, currentTime, currentTime]
+      );
+    }
+    
+    res.json({
+      success: true,
+      message: '系统配置更新成功',
+      config: {
+        winnerDisplayDelay
+      }
+    });
+  } catch (error) {
+    console.error('更新系统配置失败:', error);
+    res.status(500).json({ error: '更新系统配置失败' });
+  }
+});
+
 export default router;

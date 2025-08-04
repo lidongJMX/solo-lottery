@@ -453,6 +453,17 @@
                   <el-switch v-model="settings.autoSave" />
                 </el-form-item>
                 
+                <el-form-item label="中奖者显示延迟">
+                  <el-select v-model="settings.winnerDisplayDelay" placeholder="请选择显示延迟时间">
+                    <el-option label="立即显示" :value="0" />
+                    <el-option label="延迟1秒显示" :value="1000" />
+                    <el-option label="延迟2秒显示" :value="2000" />
+                    <el-option label="延迟3秒显示" :value="3000" />
+                    <el-option label="延迟5秒显示" :value="5000" />
+                  </el-select>
+                  <span class="form-help">停止抽奖后显示中奖者的延迟时间</span>
+                </el-form-item>
+                
                 <el-form-item>
                   <el-button type="primary" @click="saveSettings">保存设置</el-button>
                   <el-button @click="resetSettings">重置</el-button>
@@ -1062,7 +1073,8 @@ const settings = ref({
   systemName: '抽奖系统',
   organizationName: '山西省计算机软件学会',
   animationDuration: 3000,
-  autoSave: true
+  autoSave: true,
+  winnerDisplayDelay: 0 // 停止抽奖后显示中奖者的延迟时间（毫秒）
 })
 
 // 多次中奖控制配置
@@ -1640,9 +1652,30 @@ const deleteRecord = async (id) => {
   }
 }
 
-const saveSettings = () => {
-  ElMessage.success('设置保存成功')
-  // 这里添加保存设置的逻辑
+const saveSettings = async () => {
+  try {
+    // 保存系统配置到后端
+    const response = await fetch('/api/lottery/system-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        winnerDisplayDelay: settings.value.winnerDisplayDelay
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      ElMessage.success('设置保存成功');
+    } else {
+      ElMessage.error(data.error || '保存设置失败');
+    }
+  } catch (error) {
+    console.error('保存设置失败:', error);
+    ElMessage.error('保存设置失败');
+  }
 }
 
 const resetSettings = () => {
@@ -1650,7 +1683,8 @@ const resetSettings = () => {
     systemName: '抽奖系统',
     organizationName: '山西省计算机软件学会',
     animationDuration: 3000,
-    autoSave: true
+    autoSave: true,
+    winnerDisplayDelay: 0
   }
   ElMessage.success('设置已重置')
 }
@@ -1794,6 +1828,43 @@ const getAwardLevelType = (level) => {
   }
 }
 
+// 获取系统配置
+const fetchSystemConfig = async () => {
+  try {
+    const response = await fetch('/api/lottery/system-config');
+    
+    // 检查响应状态
+    if (!response.ok) {
+      console.warn(`API响应状态: ${response.status}`);
+      return;
+    }
+    
+    // 检查响应内容类型
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('API响应不是JSON格式');
+      return;
+    }
+    
+    const text = await response.text();
+    if (!text.trim()) {
+      console.warn('API响应为空');
+      return;
+    }
+    
+    const data = JSON.parse(text);
+    if (data.success && data.config) {
+      settings.value.winnerDisplayDelay = data.config.winnerDisplayDelay || 0;
+    }
+  } catch (error) {
+    console.error('获取系统配置失败:', error);
+    // 使用默认值，不影响页面正常使用
+    if (!settings.value.winnerDisplayDelay && settings.value.winnerDisplayDelay !== 0) {
+      settings.value.winnerDisplayDelay = 0;
+    }
+  }
+};
+
 // 生命周期
 onMounted(async () => {
   // 初始化数据
@@ -1804,6 +1875,7 @@ onMounted(async () => {
   await fetchStatistics()
   await fetchStatisticsData()
   await loadMultiWinConfig()
+  await fetchSystemConfig()
   await nextTick()
   initNormalityChart()
 })
