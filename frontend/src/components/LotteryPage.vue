@@ -293,31 +293,31 @@ const fetchAwards = async () => {
       {
         id: 1,
         level: 1,
-        name: '小天鹅 LittleSwan 洗烘套装',
-        description: '高端洗烘套装',
-        count: 1,
-        remaining_count: 1,
-        draw_count: 1,
+        name: '一等奖',
+        description: '小天鹅洗衣机',
+        count: 50,
+        remaining_count: 50,
+        draw_count: 5,
         image: new URL('../assets/award/一等奖.png', import.meta.url).href
       },
       {
         id: 2,
         level: 2,
-        name: '戴森吸尘器',
-        description: '无线吸尘器',
-        count: 2,
-        remaining_count: 2,
-        draw_count: 1,
+        name: '二等奖',
+        description: '戴森吹风机',
+        count: 100,
+        remaining_count: 100,
+        draw_count: 10,
         image: new URL('../assets/award/二等奖.png', import.meta.url).href
       },
       {
         id: 3,
         level: 3,
-        name: '华为智能手表',
-        description: '智能穿戴设备',
-        count: 3,
-        remaining_count: 3,
-        draw_count: 1,
+        name: '三等奖',
+        description: '智能运动手表，健康生活伴侣',
+        count: 150,
+        remaining_count: 150,
+        draw_count: 15,
         image: new URL('../assets/award/三等奖.png', import.meta.url).href
       }
     ];
