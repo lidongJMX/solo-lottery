@@ -88,11 +88,11 @@ const resetDatabase = async () => {
     (3, '三等奖', 3, 150, 150, 15, '三等奖项', datetime('now'), datetime('now'))
   `);
   
-  // 重置多次中奖控制配置
+  // 重置多次中奖控制配置（使用优化后的参数）
   await dbRun('DELETE FROM MultiWinConfig');
   await dbRun(`
     INSERT INTO MultiWinConfig (threeWinPercentage, twoWinPercentage, minEpochInterval, enabled, createdAt, updatedAt) VALUES
-    (5, 10, 3, 1, datetime('now'), datetime('now'))
+    (8, 15, 2, 1, datetime('now'), datetime('now'))
   `);
   
   // 重置轮次表
@@ -132,9 +132,9 @@ const applyMultiWinControl = async (participants, currentEpoch) => {
   // 获取多次中奖控制配置
   const config = await dbGet('SELECT * FROM MultiWinConfig LIMIT 1');
   const defaultConfig = {
-    threeWinPercentage: 5,    // 5%的三次中奖者
-    twoWinPercentage: 10,     // 10%的二次中奖者
-    minEpochInterval: 3,      // 最小轮次间隔
+    threeWinPercentage: 8,    // 8%的三次中奖者
+    twoWinPercentage: 15,     // 15%的二次中奖者
+    minEpochInterval: 2,      // 最小轮次间隔
     enabled: true             // 是否启用多次中奖控制
   };
   
@@ -170,45 +170,65 @@ const applyMultiWinControl = async (participants, currentEpoch) => {
   // 1. 优先保证未中奖者的参与机会
   controlledPool.push(...neverWon);
   
-  // 2. 控制二次中奖者的参与比例
-  if (winCountStats[2] < targetTwoWins) {
-    // 当前二次中奖者不足目标，允许一次中奖者参与
-    const allowedOnceWinners = Math.min(
-      wonOnce.length,
-      targetTwoWins - winCountStats[2]
-    );
+  // 2. 积极促进二次中奖：计算所需的一次中奖者数量
+  const neededTwoWinners = Math.max(0, targetTwoWins - winCountStats[2]);
+  if (wonOnce.length > 0) {
+    // 更激进策略：至少保证50%的一次中奖者参与
+    const minOnceWinners = Math.ceil(wonOnce.length * 0.5);
+    const targetOnceWinners = Math.max(neededTwoWinners, minOnceWinners);
     
-    // 随机选择一次中奖者参与（满足轮次间隔要求）
+    // 进一步放宽轮次间隔要求（只要不是当前轮次即可）
+    const relaxedInterval = 1;
     const eligibleOnceWinners = wonOnce.filter(p => {
       const lastWinEpoch = p.last_win_epoch || 0;
-      return (currentEpoch - lastWinEpoch) >= activeConfig.minEpochInterval;
+      return (currentEpoch - lastWinEpoch) >= relaxedInterval;
     });
     
     const selectedOnceWinners = shuffleArray(eligibleOnceWinners)
-      .slice(0, allowedOnceWinners);
+      .slice(0, Math.min(targetOnceWinners, eligibleOnceWinners.length));
     
+    // 为一次中奖者增加更高权重（100%提升）
+    selectedOnceWinners.forEach(p => {
+      p.multiWinBonus = 2.0;
+    });
     controlledPool.push(...selectedOnceWinners);
   }
   
-  // 3. 控制三次中奖者的参与比例
-  if (winCountStats[3] < targetThreeWins) {
-    // 当前三次中奖者不足目标，允许二次中奖者参与
-    const allowedTwiceWinners = Math.min(
-      wonTwice.length,
-      targetThreeWins - winCountStats[3]
-    );
+  // 3. 积极促进三次中奖：计算所需的二次中奖者数量
+  const neededThreeWinners = Math.max(0, targetThreeWins - winCountStats[3]);
+  if (wonTwice.length > 0) {
+    // 更激进策略：至少保证80%的二次中奖者参与
+    const minTwiceWinners = Math.ceil(wonTwice.length * 0.8);
+    const targetTwiceWinners = Math.max(neededThreeWinners, minTwiceWinners);
     
-    // 随机选择二次中奖者参与（满足轮次间隔要求）
+    // 进一步放宽轮次间隔要求（只要不是当前轮次即可）
+    const relaxedInterval = 1;
     const eligibleTwiceWinners = wonTwice.filter(p => {
       const lastWinEpoch = p.last_win_epoch || 0;
-      return (currentEpoch - lastWinEpoch) >= activeConfig.minEpochInterval;
+      return (currentEpoch - lastWinEpoch) >= relaxedInterval;
     });
     
     const selectedTwiceWinners = shuffleArray(eligibleTwiceWinners)
-      .slice(0, allowedTwiceWinners);
+      .slice(0, Math.min(targetTwiceWinners, eligibleTwiceWinners.length));
+    
+    // 为二次中奖者增加更高权重（200%提升）
+    selectedTwiceWinners.forEach(p => {
+      p.multiWinBonus = 3.0;
+    });
     
     controlledPool.push(...selectedTwiceWinners);
   }
+  
+  // 打印控制后的统计信息
+  const finalStats = {
+    total: controlledPool.length,
+    neverWon: controlledPool.filter(p => (p.win_count || 0) === 0).length,
+    wonOnce: controlledPool.filter(p => (p.win_count || 0) === 1).length,
+    wonTwice: controlledPool.filter(p => (p.win_count || 0) === 2).length,
+    wonThrice: controlledPool.filter(p => (p.win_count || 0) === 3).length
+  };
+  
+  console.log(`多次中奖控制后: 总计${finalStats.total}人 (0次:${finalStats.neverWon}, 1次:${finalStats.wonOnce}, 2次:${finalStats.wonTwice}, 3次:${finalStats.wonThrice})`);
   
   return controlledPool;
 };
@@ -230,19 +250,13 @@ const buildLotteryPool = async (currentEpoch) => {
   // 应用多次中奖控制策略
   const controlledParticipants = await applyMultiWinControl(allParticipants, currentEpoch);
   
-  // 基础参与者：所有未中奖的员工
-  const neverWonParticipants = controlledParticipants.filter(p => (p.win_count || 0) === 0);
+  // 直接使用控制后的参与者池，不再进行二次筛选
+  const finalPool = controlledParticipants;
   
-  // 返场参与者：从控制后的中奖者中随机抽取
-  const previousWinners = controlledParticipants.filter(p => (p.win_count || 0) > 0);
+  const neverWonCount = finalPool.filter(p => (p.win_count || 0) === 0).length;
+  const returnCount = finalPool.length - neverWonCount;
   
-  // 优化：调整返场参与者比例为25%（平衡重复中奖和公平性）
-  const returnCount = Math.floor(previousWinners.length * 0.25);
-  const returnParticipants = shuffleArray(previousWinners).slice(0, returnCount);
-  
-  const finalPool = [...neverWonParticipants, ...returnParticipants];
-  
-  log(`抽奖池构建完成: 总计${finalPool.length}人 (未中奖${neverWonParticipants.length}人, 返场${returnParticipants.length}人)`);
+  log(`抽奖池构建完成: 总计${finalPool.length}人 (未中奖${neverWonCount}人, 返场${returnCount}人)`);
   
   return finalPool;
 };
@@ -352,6 +366,10 @@ const selectByProbability = (participants) => {
     // 部门人数影响：使用平方根函数减少权重差异
     const departmentBonus = 1 + Math.sqrt(departmentSize) * 0.05;
     weight *= departmentBonus;
+    
+    // 应用多次中奖促进权重
+    const multiWinBonus = p.multiWinBonus || 1.0;
+    weight *= multiWinBonus;
     
     // 添加随机扰动以增加随机性
     const randomBytes = crypto.randomBytes(2);
