@@ -23,13 +23,26 @@ app.use((req, res, next) => {
   
   next();
 });
+// 中间件
+app.use(helmet({
+  contentSecurityPolicy: false // Vercel 部署时可能需要
+}));
+// CORS 配置
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://solo-lottery.vercel.app', 'https://*.vercel.app']
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
 
 // 中间件
-app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(morgan('combined'));
 
 // 路由
 app.use('/api/participants', participantRoutes);
@@ -40,7 +53,10 @@ app.use('/api/lottery', lotteryRoutes);
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
-
+// API 状态检查
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'API is running', timestamp: new Date().toISOString() });
+});
 // 错误处理中间件
 app.use((err, req, res, next) => {
   console.error(err.stack);
