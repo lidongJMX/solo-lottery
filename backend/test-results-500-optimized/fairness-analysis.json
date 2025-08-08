@@ -1,0 +1,531 @@
+{
+  "testCount": 10,
+  "participantCount": 500,
+  "aggregateMetrics": {
+    "totalWins": 2400,
+    "totalUniqueWinners": {},
+    "winCountDistribution": {
+      "0": 2660,
+      "1": 2280,
+      "2": 60,
+      "3": 0
+    },
+    "giniCoefficients": [
+      0.5509333333333334,
+      0.5509333333333334,
+      0.5434,
+      0.5395833333333333,
+      0.5509333333333334,
+      0.5395833333333333,
+      0.5395833333333333,
+      0.5357333333333333,
+      0.5471833333333334,
+      0.5357333333333333
+    ],
+    "skewnessValues": [
+      0.40087303767725807,
+      0.40087303767725846,
+      0.3313782822574805,
+      0.29420408151267635,
+      0.40087303767725674,
+      0.294204081512676,
+      0.2942040815126764,
+      0.2552880644793113,
+      0.3669051842616347,
+      0.25528806447931124
+    ],
+    "kurtosisValues": [
+      -1.1510847107438016,
+      -1.151084710743803,
+      -1.3216374269005846,
+      -1.4157824758516808,
+      -1.1510847107438038,
+      -1.4157824758516817,
+      -1.4157824758516835,
+      -1.5164029612425645,
+      -1.233537360164099,
+      -1.516402961242562
+    ],
+    "normalDistributionTests": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "fairnessAssessment": {
+    "isReasonable": false,
+    "isNormalDistributed": false,
+    "isFair": false,
+    "issues": [
+      "基尼系数过高，中奖分配不均严重",
+      "正态分布检验通过率低，随机性不足"
+    ],
+    "recommendations": [
+      "调整权重算法，减少中奖次数对后续中奖概率的影响",
+      "考虑增加中奖次数上限，或调整返场参与者比例",
+      "优化随机数生成算法，提高随机性",
+      "调整抽奖池构建逻辑，确保每轮参与者的多样性",
+      "考虑实施更严格的中奖限制，防止少数人重复中奖"
+    ]
+  },
+  "statisticalSummary": {
+    "averageGiniCoefficient": 0.5433600000000001,
+    "averageSkewness": 0.329409095304754,
+    "averageKurtosis": -1.3288582269336264,
+    "normalDistributionRatio": 0,
+    "totalUniqueWinners": 4955,
+    "winCountDistribution": {
+      "0": 2660,
+      "1": 2280,
+      "2": 60,
+      "3": 0
+    }
+  },
+  "departmentWeightAnalysis": {
+    "departmentEffectiveness": {
+      "技术部": {
+        "size": 56,
+        "avgWinRate": 0.06314553333685083,
+        "avgWinnerRate": 0.4972943152954435,
+        "avgWinPerPerson": 0.5051642666948066,
+        "theoreticalWeight": 1.1783708159753985,
+        "totalWinsAcrossTests": 309,
+        "totalUniqueWinnersAcrossTests": 304
+      },
+      "产品部": {
+        "size": 60,
+        "avgWinRate": 0.06199944741673806,
+        "avgWinnerRate": 0.4825192743628267,
+        "avgWinPerPerson": 0.4959955793339045,
+        "theoreticalWeight": 1.1749730653819213,
+        "totalWinsAcrossTests": 281,
+        "totalUniqueWinnersAcrossTests": 273
+      },
+      "运营部": {
+        "size": 59,
+        "avgWinRate": 0.05767796956976008,
+        "avgWinnerRate": 0.4484714255170158,
+        "avgWinPerPerson": 0.46142375655808066,
+        "theoreticalWeight": 1.1770725438384193,
+        "totalWinsAcrossTests": 275,
+        "totalUniqueWinnersAcrossTests": 267
+      },
+      "市场部": {
+        "size": 58,
+        "avgWinRate": 0.05927704664442172,
+        "avgWinnerRate": 0.46187613975695074,
+        "avgWinPerPerson": 0.47421637315537374,
+        "theoreticalWeight": 1.179874821519161,
+        "totalWinsAcrossTests": 299,
+        "totalUniqueWinnersAcrossTests": 291
+      },
+      "人事部": {
+        "size": 63,
+        "avgWinRate": 0.05834549953082498,
+        "avgWinnerRate": 0.4514357135741337,
+        "avgWinPerPerson": 0.46676399624659987,
+        "theoreticalWeight": 1.1807423662247865,
+        "totalWinsAcrossTests": 301,
+        "totalUniqueWinnersAcrossTests": 291
+      },
+      "财务部": {
+        "size": 74,
+        "avgWinRate": 0.061871166735324015,
+        "avgWinnerRate": 0.4825992683985917,
+        "avgWinPerPerson": 0.4949693338825921,
+        "theoreticalWeight": 1.18289469269493,
+        "totalWinsAcrossTests": 337,
+        "totalUniqueWinnersAcrossTests": 328
+      },
+      "设计部": {
+        "size": 69,
+        "avgWinRate": 0.06034308859820677,
+        "avgWinnerRate": 0.4688487150118387,
+        "avgWinPerPerson": 0.4827447087856542,
+        "theoreticalWeight": 1.18093420112281,
+        "totalWinsAcrossTests": 315,
+        "totalUniqueWinnersAcrossTests": 306
+      },
+      "测试部": {
+        "size": 61,
+        "avgWinRate": 0.056448378215413805,
+        "avgWinnerRate": 0.4466911923899771,
+        "avgWinPerPerson": 0.45158702572331044,
+        "theoreticalWeight": 1.179206334799723,
+        "totalWinsAcrossTests": 283,
+        "totalUniqueWinnersAcrossTests": 280
+      }
+    },
+    "departmentComparison": [
+      {
+        "dept1": "技术部",
+        "dept2": "产品部",
+        "sizeRatio": 0.9333333333333333,
+        "winRateRatio": 1.0184854215297952,
+        "theoreticalRatio": 1.0028917689209946,
+        "effectivenessRatio": 1.0155486893920544,
+        "dept1Size": 56,
+        "dept2Size": 60,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.06199944741673806
+      },
+      {
+        "dept1": "技术部",
+        "dept2": "运营部",
+        "sizeRatio": 0.9491525423728814,
+        "winRateRatio": 1.09479466437316,
+        "theoreticalRatio": 1.0011029669698568,
+        "effectivenessRatio": 1.0935884724094762,
+        "dept1Size": 56,
+        "dept2Size": 59,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.05767796956976008
+      },
+      {
+        "dept1": "技术部",
+        "dept2": "市场部",
+        "sizeRatio": 0.9655172413793104,
+        "winRateRatio": 1.0652611240171015,
+        "theoreticalRatio": 0.9987252838044073,
+        "effectivenessRatio": 1.06662076277797,
+        "dept1Size": 56,
+        "dept2Size": 58,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.05927704664442172
+      },
+      {
+        "dept1": "技术部",
+        "dept2": "人事部",
+        "sizeRatio": 0.8888888888888888,
+        "winRateRatio": 1.0822691354881604,
+        "theoreticalRatio": 0.997991475264015,
+        "effectivenessRatio": 1.0844472746641949,
+        "dept1Size": 56,
+        "dept2Size": 63,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.05834549953082498
+      },
+      {
+        "dept1": "技术部",
+        "dept2": "财务部",
+        "sizeRatio": 0.7567567567567568,
+        "winRateRatio": 1.0205970998894909,
+        "theoreticalRatio": 0.9961755879475417,
+        "effectivenessRatio": 1.024515268430002,
+        "dept1Size": 56,
+        "dept2Size": 74,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.061871166735324015
+      },
+      {
+        "dept1": "技术部",
+        "dept2": "设计部",
+        "sizeRatio": 0.8115942028985508,
+        "winRateRatio": 1.046441851150578,
+        "theoreticalRatio": 0.9978293581937299,
+        "effectivenessRatio": 1.0487182428114226,
+        "dept1Size": 56,
+        "dept2Size": 69,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.06034308859820677
+      },
+      {
+        "dept1": "技术部",
+        "dept2": "测试部",
+        "sizeRatio": 0.9180327868852459,
+        "winRateRatio": 1.1186421175092023,
+        "theoreticalRatio": 0.9992914566351389,
+        "effectivenessRatio": 1.119435285953456,
+        "dept1Size": 56,
+        "dept2Size": 61,
+        "dept1WinRate": 0.06314553333685083,
+        "dept2WinRate": 0.056448378215413805
+      },
+      {
+        "dept1": "产品部",
+        "dept2": "运营部",
+        "sizeRatio": 1.0169491525423728,
+        "winRateRatio": 1.0749242367443474,
+        "theoreticalRatio": 0.9982163559353345,
+        "effectivenessRatio": 1.0768449448387742,
+        "dept1Size": 60,
+        "dept2Size": 59,
+        "dept1WinRate": 0.06199944741673806,
+        "dept2WinRate": 0.05767796956976008
+      },
+      {
+        "dept1": "产品部",
+        "dept2": "市场部",
+        "sizeRatio": 1.0344827586206897,
+        "winRateRatio": 1.0459267275687145,
+        "theoreticalRatio": 0.9958455286545327,
+        "effectivenessRatio": 1.0502901278091248,
+        "dept1Size": 60,
+        "dept2Size": 58,
+        "dept1WinRate": 0.06199944741673806,
+        "dept2WinRate": 0.05927704664442172
+      },
+      {
+        "dept1": "产品部",
+        "dept2": "人事部",
+        "sizeRatio": 0.9523809523809523,
+        "winRateRatio": 1.0626260451156584,
+        "theoreticalRatio": 0.9951138360002179,
+        "effectivenessRatio": 1.0678437045823828,
+        "dept1Size": 60,
+        "dept2Size": 63,
+        "dept1WinRate": 0.06199944741673806,
+        "dept2WinRate": 0.05834549953082498
+      },
+      {
+        "dept1": "产品部",
+        "dept2": "财务部",
+        "sizeRatio": 0.8108108108108109,
+        "winRateRatio": 1.0020733515817282,
+        "theoreticalRatio": 0.9933031846689909,
+        "effectivenessRatio": 1.008829295071333,
+        "dept1Size": 60,
+        "dept2Size": 74,
+        "dept1WinRate": 0.06199944741673806,
+        "dept2WinRate": 0.061871166735324015
+      },
+      {
+        "dept1": "产品部",
+        "dept2": "设计部",
+        "sizeRatio": 0.8695652173913043,
+        "winRateRatio": 1.027449022862587,
+        "theoreticalRatio": 0.9949521863832711,
+        "effectivenessRatio": 1.0326617066870765,
+        "dept1Size": 60,
+        "dept2Size": 69,
+        "dept1WinRate": 0.06199944741673806,
+        "dept2WinRate": 0.06034308859820677
+      },
+      {
+        "dept1": "产品部",
+        "dept2": "测试部",
+        "sizeRatio": 0.9836065573770492,
+        "winRateRatio": 1.098338860686851,
+        "theoreticalRatio": 0.9964100689651394,
+        "effectivenessRatio": 1.1022960274052365,
+        "dept1Size": 60,
+        "dept2Size": 61,
+        "dept1WinRate": 0.06199944741673806,
+        "dept2WinRate": 0.056448378215413805
+      },
+      {
+        "dept1": "运营部",
+        "dept2": "市场部",
+        "sizeRatio": 1.0172413793103448,
+        "winRateRatio": 0.9730236716371207,
+        "theoreticalRatio": 0.9976249364511961,
+        "effectivenessRatio": 0.9753401665142931,
+        "dept1Size": 59,
+        "dept2Size": 58,
+        "dept1WinRate": 0.05767796956976008,
+        "dept2WinRate": 0.05927704664442172
+      },
+      {
+        "dept1": "运营部",
+        "dept2": "人事部",
+        "sizeRatio": 0.9365079365079365,
+        "winRateRatio": 0.9885590154093679,
+        "theoreticalRatio": 0.996891936385665,
+        "effectivenessRatio": 0.9916410990277351,
+        "dept1Size": 59,
+        "dept2Size": 63,
+        "dept1WinRate": 0.05767796956976008,
+        "dept2WinRate": 0.05834549953082498
+      },
+      {
+        "dept1": "运营部",
+        "dept2": "财务部",
+        "sizeRatio": 0.7972972972972973,
+        "winRateRatio": 0.9322269582614818,
+        "theoreticalRatio": 0.995078049726264,
+        "effectivenessRatio": 0.9368380284520678,
+        "dept1Size": 59,
+        "dept2Size": 74,
+        "dept1WinRate": 0.05767796956976008,
+        "dept2WinRate": 0.061871166735324015
+      },
+      {
+        "dept1": "运营部",
+        "dept2": "设计部",
+        "sizeRatio": 0.855072463768116,
+        "winRateRatio": 0.955833897628404,
+        "theoreticalRatio": 0.9967299979281496,
+        "effectivenessRatio": 0.9589697306344203,
+        "dept1Size": 59,
+        "dept2Size": 69,
+        "dept1WinRate": 0.05767796956976008,
+        "dept2WinRate": 0.06034308859820677
+      },
+      {
+        "dept1": "运营部",
+        "dept2": "测试部",
+        "sizeRatio": 0.9672131147540983,
+        "winRateRatio": 1.0217825807085903,
+        "theoreticalRatio": 0.998190485500007,
+        "effectivenessRatio": 1.0236348628355896,
+        "dept1Size": 59,
+        "dept2Size": 61,
+        "dept1WinRate": 0.05767796956976008,
+        "dept2WinRate": 0.056448378215413805
+      },
+      {
+        "dept1": "市场部",
+        "dept2": "人事部",
+        "sizeRatio": 0.9206349206349206,
+        "winRateRatio": 1.0159660491569633,
+        "theoreticalRatio": 0.9992652548680884,
+        "effectivenessRatio": 1.0167130741387376,
+        "dept1Size": 58,
+        "dept2Size": 63,
+        "dept1WinRate": 0.05927704664442172,
+        "dept2WinRate": 0.05834549953082498
+      },
+      {
+        "dept1": "市场部",
+        "dept2": "财务部",
+        "sizeRatio": 0.7837837837837838,
+        "winRateRatio": 0.9580722293148346,
+        "theoreticalRatio": 0.9974470498562396,
+        "effectivenessRatio": 0.9605244002204628,
+        "dept1Size": 58,
+        "dept2Size": 74,
+        "dept1WinRate": 0.05927704664442172,
+        "dept2WinRate": 0.061871166735324015
+      },
+      {
+        "dept1": "市场部",
+        "dept2": "设计部",
+        "sizeRatio": 0.8405797101449275,
+        "winRateRatio": 0.9823336528084721,
+        "theoreticalRatio": 0.9991029308807877,
+        "effectivenessRatio": 0.9832156652192661,
+        "dept1Size": 58,
+        "dept2Size": 69,
+        "dept1WinRate": 0.05927704664442172,
+        "dept2WinRate": 0.06034308859820677
+      },
+      {
+        "dept1": "市场部",
+        "dept2": "测试部",
+        "sizeRatio": 0.9508196721311475,
+        "winRateRatio": 1.0501107120954543,
+        "theoreticalRatio": 1.0005668954615576,
+        "effectivenessRatio": 1.049515746381997,
+        "dept1Size": 58,
+        "dept2Size": 61,
+        "dept1WinRate": 0.05927704664442172,
+        "dept2WinRate": 0.056448378215413805
+      },
+      {
+        "dept1": "人事部",
+        "dept2": "财务部",
+        "sizeRatio": 0.8513513513513513,
+        "winRateRatio": 0.9430159896679929,
+        "theoreticalRatio": 0.9981804580885895,
+        "effectivenessRatio": 0.9447349745493608,
+        "dept1Size": 63,
+        "dept2Size": 74,
+        "dept1WinRate": 0.05834549953082498,
+        "dept2WinRate": 0.061871166735324015
+      },
+      {
+        "dept1": "人事部",
+        "dept2": "设计部",
+        "sizeRatio": 0.9130434782608695,
+        "winRateRatio": 0.9668961414838625,
+        "theoreticalRatio": 0.9998375566582448,
+        "effectivenessRatio": 0.9670532328426606,
+        "dept1Size": 63,
+        "dept2Size": 69,
+        "dept1WinRate": 0.05834549953082498,
+        "dept2WinRate": 0.06034308859820677
+      },
+      {
+        "dept1": "人事部",
+        "dept2": "测试部",
+        "sizeRatio": 1.0327868852459017,
+        "winRateRatio": 1.0336080747647263,
+        "theoreticalRatio": 1.0013025976707666,
+        "effectivenessRatio": 1.0322634507980992,
+        "dept1Size": 63,
+        "dept2Size": 61,
+        "dept1WinRate": 0.05834549953082498,
+        "dept2WinRate": 0.056448378215413805
+      },
+      {
+        "dept1": "财务部",
+        "dept2": "设计部",
+        "sizeRatio": 1.0724637681159421,
+        "winRateRatio": 1.0253231674515688,
+        "theoreticalRatio": 1.0016601192261652,
+        "effectivenessRatio": 1.0236238298512719,
+        "dept1Size": 74,
+        "dept2Size": 69,
+        "dept1WinRate": 0.061871166735324015,
+        "dept2WinRate": 0.06034308859820677
+      },
+      {
+        "dept1": "财务部",
+        "dept2": "测试部",
+        "sizeRatio": 1.2131147540983607,
+        "winRateRatio": 1.0960663298282227,
+        "theoreticalRatio": 1.0031278308014122,
+        "effectivenessRatio": 1.092648709539402,
+        "dept1Size": 74,
+        "dept2Size": 61,
+        "dept1WinRate": 0.061871166735324015,
+        "dept2WinRate": 0.056448378215413805
+      },
+      {
+        "dept1": "设计部",
+        "dept2": "测试部",
+        "sizeRatio": 1.1311475409836065,
+        "winRateRatio": 1.0689959659767423,
+        "theoreticalRatio": 1.0014652790373453,
+        "effectivenessRatio": 1.067431880418571,
+        "dept1Size": 69,
+        "dept2Size": 61,
+        "dept1WinRate": 0.06034308859820677,
+        "dept2WinRate": 0.056448378215413805
+      }
+    ],
+    "weightingConclusion": {
+      "isEffective": true,
+      "averageEffectivenessRatio": 1.0291353090805868,
+      "recommendations": [
+        "部门权重效果适中，当前设置合理"
+      ]
+    }
+  },
+  "multiWinControlAnalysis": {
+    "config": {
+      "enabled": 1,
+      "threeWinRatio": 0.08,
+      "twoWinRatio": 0.15,
+      "minEpochInterval": 2
+    },
+    "actualRatios": {
+      "threeWinRatio": 0,
+      "twoWinRatio": 0.012000000000000002,
+      "oneWinRatio": 0.456,
+      "noWinRatio": 0.532
+    },
+    "deviations": {
+      "threeWinDeviation": -0.08,
+      "twoWinDeviation": -0.138
+    },
+    "effectiveness": "poor"
+  }
+}
