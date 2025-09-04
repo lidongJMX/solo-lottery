@@ -83,7 +83,7 @@ const resetDatabase = async () => {
   await dbRun('DELETE FROM Award');
   await dbRun(`
     INSERT INTO Award (id, name, level, count, remaining_count, draw_count, description, createdAt, updatedAt) VALUES
-    (1, '一等奖', 1, 50, 50, 5, '最高奖项', datetime('now'), datetime('now')),
+    (1, '一等奖', 1, 50, 50, 5, '一等奖', datetime('now'), datetime('now')),
     (2, '二等奖', 2, 100, 100, 10, '二等奖项', datetime('now'), datetime('now')),
     (3, '三等奖', 3, 150, 150, 15, '三等奖项', datetime('now'), datetime('now'))
   `);

@@ -698,7 +698,62 @@ const finalizeDraw = async () => {
 const handleKeyPress = (event) => {
   if (event.code === 'Space') {
     event.preventDefault();
-    stopDraw();
+    // 立即停止抽奖并显示中奖者
+    immediateStop();
+  }
+};
+
+// 立即停止抽奖
+const immediateStop = async () => {
+  if (!isDrawing.value) return;
+
+  // 立即停止滚动
+  if (rollingTimer.value) {
+    clearTimeout(rollingTimer.value);
+    rollingTimer.value = null;
+  }
+
+  // 停止抽奖过程音乐
+  try {
+    processAudio.pause();
+    processAudio.currentTime = 0;
+  } catch (error) {
+    console.warn('停止抽奖音乐失败:', error);
+  }
+
+  // 移除键盘监听
+  document.removeEventListener('keydown', handleKeyPress);
+
+  try {
+    // 确定最终中奖者
+    const newWinners = await drawWinners();
+    
+    if (newWinners && newWinners.length > 0) {
+      // 播放结束音乐
+      try {
+        endAudio.currentTime = 0;
+        endAudio.play().catch(error => {
+          console.warn('播放结束音乐失败:', error);
+        });
+      } catch (error) {
+        console.warn('播放结束音乐失败:', error);
+      }
+
+      // 更新当前中奖者列表
+      currentWinners.value = newWinners;
+      
+      // 立即显示中奖弹窗
+      showWinnerDialog.value = true;
+    } else {
+      ElMessage.error('抽奖失败，请重试');
+    }
+  } catch (error) {
+    console.error('抽奖失败:', error);
+    ElMessage.error('抽奖失败，请重试');
+  } finally {
+    // 重置状态
+    isDrawing.value = false;
+    isSlowingDown.value = false;
   }
 };
 

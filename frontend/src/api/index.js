@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
+
 
 // 根据环境动态设置 baseURL
 const getBaseURL = () => {
