@@ -161,6 +161,7 @@ export async function initDatabase() {
         "twoWinPercentage" INTEGER NOT NULL DEFAULT 10,
         "minEpochInterval" INTEGER NOT NULL DEFAULT 3,
         "enabled" TINYINT(1) NOT NULL DEFAULT 1,
+        "guaranteeMode" TINYINT(1) NOT NULL DEFAULT 1,
         "createdAt" DATETIME NOT NULL,
         "updatedAt" DATETIME NOT NULL
       )
@@ -331,8 +332,8 @@ export async function initDatabase() {
     // 检查MultiWinConfig表是否有数据
     if (tableCounts.MultiWinConfig === 0) {
       await dbRun(
-        `INSERT INTO "MultiWinConfig" ("threeWinPercentage", "twoWinPercentage", "minEpochInterval", "enabled", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?)`,
-        [5, 10, 3, 1, currentTime, currentTime]
+        `INSERT INTO "MultiWinConfig" ("threeWinPercentage", "twoWinPercentage", "minEpochInterval", "enabled", "guaranteeMode", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [8, 15, 2, 1, 1, currentTime, currentTime]
       );
       console.log('默认多次中奖控制配置插入完成');
     } else {
